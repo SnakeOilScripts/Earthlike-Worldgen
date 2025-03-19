@@ -1,5 +1,6 @@
 import random
 import math
+import sys
 
 random.seed()
 
@@ -133,7 +134,7 @@ class Tectonics(Points):
             
 
     def get_break_options(self, x, y, value):
-        adjacent_points = self.get_adjacent_points(x, y)
+        adjacent_points = self.get_adjacent_points_within_dimensions(x, y)
         break_options = []
         for adj in adjacent_points:
             if adj in self.points.keys():
@@ -150,19 +151,17 @@ class Tectonics(Points):
         loose_ends = self.get_loose_ends()
         if len(loose_ends) == 0:
             return 1
-        for p in loose_ends:
-            options = self.get_break_options(p[0], p[1], self.points[p])
-            choice = random.choice(options)
-            self.add_point(choice[0], choice[1], self.points[p])
-            blacklist_points = self.get_adjacent_points(p[0], p[1])
-            for b in blacklist_points:
-                self.breakpoint_blacklist[self.points[p]].add(b)
+        picked_break = random.choice(loose_ends)
+        next_break = random.choice(self.get_break_options(picked_break[0], picked_break[1], self.points[picked_break]))
+        self.add_point(next_break[0], next_break[1], self.points[picked_break])
+        for p in self.get_adjacent_points_within_dimensions(picked_break[0], picked_break[1]):
+            self.breakpoint_blacklist[self.points[picked_break]].add(p)
         return 0
 
 
     def get_loose_ends(self):
         loose_ends = []
         for p in self.points.keys():
-            if len(self.get_adjacent_neighbors(p[0], p[1])) < 2:
+            if len(self.get_break_options(p[0], p[1], self.points[p])) > 0:
                 loose_ends.append(p)
         return loose_ends

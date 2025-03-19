@@ -1,5 +1,5 @@
 from world_creation import World
-import time, sys
+import sys
 
 def print_tectonics_ascii(world):
     dimensions = world.dimensions
@@ -19,14 +19,11 @@ def print_tectonics_ascii(world):
 dimensions = ((0, 50),(0, 50))
 
 w = World(dimensions)
-w.prepare_tectonics(6, 5)
+w.prepare_tectonics(10, 5)
+
 print_tectonics_ascii(w)
-start = time.time()
 
 while w.tectonics.develop_breaks() == 0:
     continue
 
-stop = time.time()
 print_tectonics_ascii(w)
-
-print(stop - start)
