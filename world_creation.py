@@ -10,16 +10,16 @@ class World:
         self.dimensions = dimensions
 
 
-    def prepare_tectonics(self, max_brkpts, min_distance):
+    def prepare_tectonics(self, max_splits, min_distance):
         self.tectonics = Tectonics(self.dimensions)
-        for i in range(max_brkpts):
-            self.tectonics.generate_random_breakpoint(min_distance)
+        for i in range(max_splits):
+            self.tectonics.generate_random_split(min_distance)
 
 
     def generate(self):
         tectonics_finished = 0
         while tectonics_finished == 0:
-            teconics_finished = self.tectonics.develop_breaks()
+            teconics_finished = self.tectonics.develop_splits()
 
 
 
@@ -44,7 +44,7 @@ class Points:
 
 
     def get_distance(self, point1, point2):
-        return int(math.sqrt(math.pow(point1[0] - point2[0],2)+math.pow(point1[1] - point2[1],2)))
+        return math.sqrt(math.pow(point1[0] - point2[0],2)+math.pow(point1[1] - point2[1],2))
 
 
     def change_value(self, x, y, value):
@@ -99,69 +99,116 @@ class Points:
                 clostest_neighbor = p
         return clostest_neighbor
 
+
+
+class Line(Points):
+
+    def __init__(self, dimensions, value):
+        self.value = value
+        self.active = True
+        super().__init__(dimensions)
+    
+
+    def get_ends(self):
+        return [p for p in self.points.keys() if len(self.get_adjacent_neighbors(p[0], p[1])) < 2]
+
+
+    def get_middle_point(self):
+        ends = self.get_ends()
+        vector = (ends[0][0] - ends[1][0], ends[0][1] - ends[1][1])
+        return (int(ends[0][0] + vector[0]/2), int(ends[0][1] + vector[1]/2))
+
+
+    def add_point(self, x, y):
+        super().add_point(x, y, self.value)
+
+
         
-        
-class Tectonics(Points):
+class Tectonics():
 
     def __init__(self, dimensions):
-        self.break_id = 1
-        self.breakpoint_blacklist = {}
-        super().__init__(dimensions)
+        self.dimensions = dimensions
+        self.split_bases = Points(dimensions)   # for distance calculation in initial split generation
+        self.splits = []                        # for development of splits
+        self.split_id = 1
 
 
-    def add_breakpoint(self, x, y):
-        self.add_point(x, y, self.break_id)
-        adjacent_points = self.get_adjacent_points_within_dimensions(x, y)
-        first_neighbor = random.choice(adjacent_points)
-        self.add_point(first_neighbor[0], first_neighbor[1], self.break_id)
-        self.breakpoint_blacklist[self.break_id] = set()
-        self.break_id += 1
+    def add_split(self, x, y):
+        self.split_bases.add_point(x, y, self.split_id)
+        l = Line(self.dimensions, self.split_id)
+        l.add_point(x, y)
+        random_neighbor = random.choice(l.get_adjacent_points(x, y))
+        l.add_point(random_neighbor[0], random_neighbor[1])
+        self.splits.append(l)
+        self.split_id += 1
 
 
-    def generate_random_breakpoint(self, minimum_distance, max_attempts=50):
+    def generate_random_split(self, minimum_distance, max_attempts=50):
         # randomly pick a point for a tectonic break/volcano, with a minimum distance from all other previous points
         attempts = 0
         point = (random.randint(self.dimensions[0][0], self.dimensions[0][1]), random.randint(self.dimensions[1][0], self.dimensions[1][1]))
-        if len(self.points.keys()) == 0:
-            self.add_breakpoint(point[0], point[1])
+        if len(self.split_bases.points.keys()) == 0:
+            self.add_split(point[0], point[1])
         else:
-            while self.get_distance(point, self.get_closest_neighbor(point)) < minimum_distance:
+            while self.split_bases.get_distance(point, self.split_bases.get_closest_neighbor(point)) < minimum_distance:
                 point = (random.randint(self.dimensions[0][0], self.dimensions[0][1]), random.randint(self.dimensions[1][0], self.dimensions[1][1]))
                 attempts += 1
                 if attempts >= max_attempts:
                     return -1
-            self.add_breakpoint(point[0], point[1])
+            self.add_split(point[0], point[1])
+    
+
+    def get_split_options(self, split:Line):
+        options = []
+        for end in split.get_ends():        # both ends need to be treated separately for activity monitoring
+            end_distance = split.get_distance(end, split.get_middle_point())
+            # eligible neighbors are all adjacent points that have a higher or equal distance from the middle point than the specified end
+            allowed_neighbors = [  p for p in split.get_adjacent_points_within_dimensions(end[0], end[1])
+                                    if split.get_distance(p, split.get_middle_point()) >= end_distance
+                                    and len(split.get_adjacent_neighbors(p[0], p[1])) < 2
+                                ]
+            if allowed_neighbors == []:
+                continue
+            for s in self.splits:
+                if all([n in s.points for n in allowed_neighbors]):
+                    # check if all eligible neighbors are already part of another split
+                    continue
+            options += allowed_neighbors
+        return options
+
+
+    def check_split_activity(self):
+        for s in self.splits:
+            options = self.get_split_options(s)
+            if options == []:
+                s.active = False
+        return any(s.active for s in self.splits)
+
+
+    def get_active_splits(self):
+        return [s for s in self.splits if s.active == True]
+
             
-
-    def get_break_options(self, x, y, value):
-        adjacent_points = self.get_adjacent_points_within_dimensions(x, y)
-        break_options = []
-        for adj in adjacent_points:
-            if adj in self.points.keys():
-                continue
-            elif adj in self.breakpoint_blacklist[value]:
-                continue
-            #elif self.point_outside_dimensions(adj[0], adj[1]):
-            #    continue
-            break_options.append(adj)
-        return break_options
-
-
-    def develop_breaks(self):
-        loose_ends = self.get_loose_ends()
-        if len(loose_ends) == 0:
-            return 1
-        picked_break = random.choice(loose_ends)
-        next_break = random.choice(self.get_break_options(picked_break[0], picked_break[1], self.points[picked_break]))
-        self.add_point(next_break[0], next_break[1], self.points[picked_break])
-        for p in self.get_adjacent_points_within_dimensions(picked_break[0], picked_break[1]):
-            self.breakpoint_blacklist[self.points[picked_break]].add(p)
+    def develop_splits(self):
+        if not self.check_split_activity():
+            return -1
+        # pick a random split-line
+        split = random.choice(self.get_active_splits())
+        # pick a random end of the split
+        split_options = self.get_split_options(split)
+        split_options.sort(key=lambda x: split.get_distance(split.get_middle_point(), x), reverse=True)
+        # create a bias towards maximum distance from middle point i.e. straight line bias
+        straight_line_bias = 0.6
+        if random.random() <= straight_line_bias or len(split_options) <= 2:
+            chosen_option = random.choice(split_options[:2])
+        else:
+            chosen_option = random.choice(split_options[2:])
+        split.add_point(chosen_option[0], chosen_option[1])
         return 0
-
-
-    def get_loose_ends(self):
-        loose_ends = []
-        for p in self.points.keys():
-            if len(self.get_break_options(p[0], p[1], self.points[p])) > 0:
-                loose_ends.append(p)
-        return loose_ends
+    
+    def unify_splits(self):
+        united_points = Points(self.dimensions)
+        for split in self.splits:
+            for p in split.points:
+                united_points.add_point(p[0], p[1], split.value)
+        return united_points
