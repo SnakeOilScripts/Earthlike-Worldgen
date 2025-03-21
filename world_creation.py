@@ -145,7 +145,7 @@ class Tectonics():
             self.add_split(point[0], point[1])
         else:
             while self.split_bases.get_distance(point, self.split_bases.get_closest_neighbor(point)) < minimum_distance:
-                point = (random.randint(self.dimensions[0][0], self.dimensions[0][1]), random.randint(self.dimensions[1][0], self.dimensions[1][1]))
+                point = (random.randint(self.dimensions[0][0], self.dimensions[0][1]-1), random.randint(self.dimensions[1][0], self.dimensions[1][1]-1))
                 attempts += 1
                 if attempts >= max_attempts:
                     return -1
@@ -158,8 +158,9 @@ class Tectonics():
             end_distance = split.get_distance(end, split.get_middle_point())
             # eligible neighbors are all adjacent points that have a higher or equal distance from the middle point than the specified end
             allowed_neighbors = [  p for p in split.get_adjacent_points_within_dimensions(end[0], end[1])
-                                    if split.get_distance(p, split.get_middle_point()) >= end_distance
+                                    if split.get_distance(p, split.get_middle_point()) >= end_distance          #has to be replaced to avoid unterminated lines...
                                     and len(split.get_adjacent_neighbors(p[0], p[1])) < 2
+                                    and not any([p in s.points for s in self.splits])
                                 ]
             if allowed_neighbors == []:
                 continue
@@ -192,7 +193,7 @@ class Tectonics():
         split_options = self.get_split_options(split)
         split_options.sort(key=lambda x: split.get_distance(split.get_middle_point(), x), reverse=True)
         # create a bias towards maximum distance from middle point i.e. straight line bias
-        straight_line_bias = 0.6
+        straight_line_bias = 0.8
         if random.random() <= straight_line_bias or len(split_options) <= 2:
             chosen_option = random.choice(split_options[:2])
         else:
@@ -200,6 +201,17 @@ class Tectonics():
         split.add_point(chosen_option[0], chosen_option[1])
         return 0
     
+
+    def split_unfinished(self, split):
+        ends = split.get_ends()
+        for end in ends:
+            for n in split.get_adjacent_points(end[0], end[1]):
+                if split.point_outside_dimensions(n[0], n[1]) or any([n in s.points for s in self.splits if s.value != split.value]):
+                    break
+                return True
+        return False
+
+
     def unify_splits(self):
         united_points = Points(self.dimensions)
         for split in self.splits:
