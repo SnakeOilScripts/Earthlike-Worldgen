@@ -10,7 +10,7 @@ def print_tectonics_ascii(world):
             if (x,y) in unified_points.points.keys():
                 print("#", end="")
             else:
-                print(".", end="")
+                print(":", end="")
         print("\n", end="")
     for x in range(dimensions[0][0], dimensions[0][1]+1):
         print("_", end="")
@@ -24,10 +24,10 @@ w.prepare_tectonics(7, 5)
 
 print_tectonics_ascii(w)
 
-for i in range(100):
-    w.tectonics.develop_splits()
+#for i in range(500):
+#    w.tectonics.develop_splits()
 
-#while w.tectonics.develop_splits() == 0:
-#    continue
+while w.tectonics.develop_splits() == 0:
+    continue
 
 print_tectonics_ascii(w)

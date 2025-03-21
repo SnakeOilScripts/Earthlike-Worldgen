@@ -66,9 +66,6 @@ class Points:
 
     def get_adjacent_neighbors(self, x, y):
         possible_neighbors = self.get_adjacent_points(x, y)
-        if any([self.point_outside_dimensions(n[0], n[1]) for n in possible_neighbors]):
-            # points at the edge have the maximum number of neighbors
-            return possible_neighbors
         neighbors = []
         for p in possible_neighbors:
             if p in self.points.keys():
@@ -78,9 +75,6 @@ class Points:
 
     def get_adjacent_neighbors_by_value(self, x, y, value):
         possible_neighbors = self.get_adjacent_points(x, y)
-        if any([self.point_outside_dimensions(n[0], n[1]) for n in possible_neighbors]):
-            # points at the edge have the maximum number of neighbors
-            return []
         neighbors = []
         for p in possible_neighbors:
             if p in self.points.keys():
@@ -110,7 +104,12 @@ class Line(Points):
     
 
     def get_ends(self):
-        return [p for p in self.points.keys() if len(self.get_adjacent_neighbors(p[0], p[1])) < 2]
+        ends = [p for p in self.points.keys() if len(self.get_adjacent_neighbors(p[0], p[1])) < 2]
+        if len(ends) < 2:
+            return self.previous_ends
+        else:
+            self.previous_ends = ends
+            return ends
 
 
     def get_middle_point(self):
@@ -137,7 +136,7 @@ class Tectonics():
         self.split_bases.add_point(x, y, self.split_id)
         l = Line(self.dimensions, self.split_id)
         l.add_point(x, y)
-        random_neighbor = random.choice(l.get_adjacent_points(x, y))
+        random_neighbor = random.choice(l.get_adjacent_points_within_dimensions(x, y))
         l.add_point(random_neighbor[0], random_neighbor[1])
         self.splits.append(l)
         self.split_id += 1
@@ -178,7 +177,7 @@ class Tectonics():
 
 
     def check_split_activity(self):
-        for s in self.splits:
+        for s in self.splits:    
             options = self.get_split_options(s)
             if options == []:
                 s.active = False
