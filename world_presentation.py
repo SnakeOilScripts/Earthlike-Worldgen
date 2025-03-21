@@ -24,16 +24,27 @@ w.prepare_tectonics(4, 10)
 
 print_tectonics_ascii(w)
 
-#for i in range(500):
-#    w.tectonics.develop_splits()
 
 while w.tectonics.develop_splits() == 0:
     continue
 
 print_tectonics_ascii(w)
 
-unfinished_splits = 0
+w.tectonics.activate_unfinished_splits()
+w.tectonics.distance_irrelevant()
+
+while w.tectonics.develop_splits() == 0:
+    continue
+
+print_tectonics_ascii(w)
+
+w.tectonics.activate_unfinished_splits()
+w.tectonics.allow_circles()
+
+while w.tectonics.develop_splits() == 0:
+    continue
+
+print_tectonics_ascii(w)
+
 for split in w.tectonics.splits:
-    if w.tectonics.split_unfinished(split):
-        unfinished_splits += 1
-print(unfinished_splits)
+    print(split.value, split.distance_irrelevant, split.circles_allowed)

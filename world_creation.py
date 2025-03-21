@@ -100,11 +100,21 @@ class Line(Points):
     def __init__(self, dimensions, value):
         self.value = value
         self.active = True
+        self.distance_irrelevant = False
+        self.circles_allowed = False
         super().__init__(dimensions)
-    
+
 
     def get_ends(self):
         return [p for p in self.points.keys() if len(self.get_adjacent_neighbors(p[0], p[1])) < 2]
+
+
+    def set_distance_irrelevant(self, relevancy:bool):
+        self.distance_irrelevant = relevancy
+
+
+    def set_circle_allowed(self, forbidden:bool):
+        self.circles_allowed = forbidden
 
 
     def get_middle_point(self):
@@ -158,8 +168,8 @@ class Tectonics():
             end_distance = split.get_distance(end, split.get_middle_point())
             # eligible neighbors are all adjacent points that have a higher or equal distance from the middle point than the specified end
             allowed_neighbors = [  p for p in split.get_adjacent_points_within_dimensions(end[0], end[1])
-                                    if split.get_distance(p, split.get_middle_point()) >= end_distance          #has to be replaced to avoid unterminated lines...
-                                    and len(split.get_adjacent_neighbors(p[0], p[1])) < 2
+                                    if (split.get_distance(p, split.get_middle_point()) >= end_distance or split.distance_irrelevant)
+                                    and (len(split.get_adjacent_neighbors(p[0], p[1])) < 2 or split.circles_allowed)
                                     and not any([p in s.points for s in self.splits])
                                 ]
             if allowed_neighbors == []:
@@ -210,6 +220,22 @@ class Tectonics():
                     break
                 return True
         return False
+
+
+    def activate_unfinished_splits(self):
+        for split in self.splits:
+            if self.split_unfinished(split):
+                split.active = True
+
+
+    def allow_circles(self):
+        for split in self.splits:
+            split.set_circle_allowed(True)
+
+    
+    def distance_irrelevant(self):
+        for split in self.splits:
+            split.set_distance_irrelevant(True)
 
 
     def unify_splits(self):
