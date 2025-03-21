@@ -20,6 +20,10 @@ def print_tectonics_ascii(world):
 dimensions = ((0, 50),(0, 50))
 
 w = World(dimensions)
+
+w.tectincs = Tectonics(dimensions)
+
+
 w.prepare_tectonics(7, 5)
 
 print_tectonics_ascii(w)

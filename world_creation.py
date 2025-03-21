@@ -104,12 +104,7 @@ class Line(Points):
     
 
     def get_ends(self):
-        ends = [p for p in self.points.keys() if len(self.get_adjacent_neighbors(p[0], p[1])) < 2]
-        if len(ends) < 2:
-            return self.previous_ends
-        else:
-            self.previous_ends = ends
-            return ends
+        return [p for p in self.points.keys() if len(self.get_adjacent_neighbors(p[0], p[1])) < 2]
 
 
     def get_middle_point(self):
@@ -145,7 +140,7 @@ class Tectonics():
     def generate_random_split(self, minimum_distance, max_attempts=50):
         # randomly pick a point for a tectonic break/volcano, with a minimum distance from all other previous points
         attempts = 0
-        point = (random.randint(self.dimensions[0][0], self.dimensions[0][1]), random.randint(self.dimensions[1][0], self.dimensions[1][1]))
+        point = (random.randint(self.dimensions[0][0], self.dimensions[0][1]-1), random.randint(self.dimensions[1][0], self.dimensions[1][1]-1))
         if len(self.split_bases.points.keys()) == 0:
             self.add_split(point[0], point[1])
         else:
