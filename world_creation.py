@@ -14,6 +14,7 @@ random.seed()
 #       6) local flora/fauna
 
 # missing: mineral deposits?
+#           read up on this here: geologyin.com
 
 
 class World:
