@@ -4,6 +4,18 @@ import sys
 
 random.seed()
 
+
+#TODO:  1) general elevation levels (via plate tectonics) -> identify plate by randomly chosen point within it & vectors to all reachable points/closest neighbors
+#          then simulate movement of plates by moving middle point & adjusting vectors
+#       2) general erision to get classic foothill shapes (abstract wind&water) -> make map more detailed
+#       3) add x units of water to every point, travel to lowest reachable point, simulate sea level and bodies of water with it
+#       4) water cycle and river/lake formation
+#       5) local climate, (ground type), humidity
+#       6) local flora/fauna
+
+# missing: mineral deposits?
+
+
 class World:
 
     def __init__(self, dimensions):
