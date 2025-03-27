@@ -1,13 +1,12 @@
-from world_creation import World
+from world_creation import *
 import sys
 
-def print_tectonics_ascii(world):
-    dimensions = world.dimensions
-    unified_points = world.tectonics.unify_splits()
+def print_points_ascii(points):
+    dimensions = points.dimensions
     for y in range(dimensions[1][0], dimensions[1][1]):
         print("|", end="")
         for x in range(dimensions[0][0], dimensions[0][1]):
-            if (x,y) in unified_points.points.keys():
+            if (x,y) in points.points.keys():
                 print("#", end="")
             else:
                 print(":", end="")
@@ -22,13 +21,13 @@ dimensions = ((0, 100),(0, 100))
 w = World(dimensions)
 w.prepare_tectonics(7, 20)
 
-print_tectonics_ascii(w)
+print_points_ascii(w.tectonics.unify_splits())
 
 
 while w.tectonics.develop_splits() == 0:
     continue
 
-print_tectonics_ascii(w)
+print_points_ascii(w.tectonics.unify_splits())
 
 w.tectonics.activate_unfinished_splits()
 w.tectonics.distance_irrelevant()
@@ -36,16 +35,10 @@ w.tectonics.distance_irrelevant()
 while w.tectonics.develop_splits() == 0:
     continue
 
-print_tectonics_ascii(w)
-"""
-w.tectonics.activate_unfinished_splits()
-w.tectonics.allow_circles()
+print_points_ascii(w.tectonics.unify_splits())
 
-while w.tectonics.develop_splits() == 0:
-    continue
+splits = w.tectonics.unify_splits()
+plates = TectonicPlates(dimensions)
 
-print_tectonics_ascii(w)
-
-for split in w.tectonics.splits:
-    print(split.value, split.distance_irrelevant, split.circles_allowed)
-"""
+complement = plates.generate_from_splits(splits)
+print_points_ascii(complement)

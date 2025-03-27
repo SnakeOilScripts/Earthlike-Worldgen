@@ -24,7 +24,7 @@ class World:
 
 
     def prepare_tectonics(self, max_splits, min_distance):
-        self.tectonics = Tectonics(self.dimensions)
+        self.tectonics = TectonicSplits(self.dimensions)
         for i in range(max_splits):
             self.tectonics.generate_random_split(min_distance)
 
@@ -77,6 +77,11 @@ class Points:
         return [p for p in adjacent_points if not self.point_outside_dimensions(p[0], p[1])]
 
 
+    def get_adjacent_empty_within_dimensions(self, x, y):
+        adjacent_points = self.get_adjacent_points_within_dimensions(x, y)
+        return [p for p in adjacent_points if p not in self.points.keys()]
+
+
     def get_adjacent_neighbors(self, x, y):
         possible_neighbors = self.get_adjacent_points(x, y)
         neighbors = []
@@ -85,6 +90,11 @@ class Points:
                 neighbors.append(p)
         return neighbors
     
+
+    def get_adjacent_nondiagonal_neighbors(self, x, y):
+        neighbors = self.get_adjacent_neighbors(x, y)
+        return [n for n in neighbors if n[0] == x or n[1] == y]
+
 
     def get_adjacent_neighbors_by_value(self, x, y, value):
         possible_neighbors = self.get_adjacent_points(x, y)
@@ -141,13 +151,14 @@ class Line(Points):
 
 
         
-class Tectonics():
+class TectonicSplits():
 
-    def __init__(self, dimensions):
+    def __init__(self, dimensions, straight_line_bias=0.8):
         self.dimensions = dimensions
         self.split_bases = Points(dimensions)   # for distance calculation in initial split generation
         self.splits = []                        # for development of splits
         self.split_id = 1
+        self.straight_line_bias = straight_line_bias
 
 
     def add_split(self, x, y):
@@ -216,8 +227,7 @@ class Tectonics():
         split_options = self.get_split_options(split)
         split_options.sort(key=lambda x: split.get_distance(split.get_middle_point(), x), reverse=True)
         # create a bias towards maximum distance from middle point i.e. straight line bias
-        straight_line_bias = 0.8
-        if random.random() <= straight_line_bias or len(split_options) <= 2:
+        if random.random() <= self.straight_line_bias or len(split_options) <= 2:
             chosen_option = random.choice(split_options[:2])
         else:
             chosen_option = random.choice(split_options[2:])
@@ -257,3 +267,47 @@ class Tectonics():
             for p in split.points:
                 united_points.add_point(p[0], p[1], split.value)
         return united_points
+
+
+
+class TectonicPlates():
+    
+    def __init__(self, dimensions):
+        self.dimensions = dimensions
+        self.plates = []
+
+
+    def add_boundaries(self, points:Points, value=1):
+        for x in range(self.dimensions[0][0], self.dimensions[0][1]):
+            points.add_point(x, self.dimensions[1][0], value)
+            points.add_point(x, self.dimensions[1][1]-1, value)     # these boundaries are supposed to be WITHIN the boundaries of the Points-Object
+        for y in range(self.dimensions[1][0], self.dimensions[1][1]):
+            points.add_point(self.dimensions[0][0], y, value)
+            points.add_point(self.dimensions[0][1]-1, y, value)
+        return points
+
+
+    def generate_inverse_neighbors(self, points:Points, value=1):
+        neighbors = Points(self.dimensions)
+        for p in points.points.keys():
+            for n in points.get_adjacent_empty_within_dimensions(p[0], p[1]):
+                neighbors.add_point(n[0], n[1], value)
+        return neighbors
+
+
+    def extract_cycle(self, points:Points, start):
+        circle = Points(self.dimensions)
+        neighbors = points.get_adjacent_neighbors(start[0], start[1])
+        while neighbors != []:
+            circle.add_point(start[0], start[1], points[start])
+            del points[start]
+            start = neighbors[0]
+            neighbors = points.get_adjacent_neighbors(start[0], start[1])
+        return circle
+
+
+    def generate_from_splits(self, splits:Points):
+        # splits is the output of unify_splits() in TectonicSplits
+        splits = self.add_boundaries(splits)
+        inverse_neighbors = self.generate_inverse_neighbors(splits)
+        return inverse_neighbors
