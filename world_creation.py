@@ -313,8 +313,21 @@ class TectonicPlates():
         return
 
 
+    def create_aligned_plate(self, splits:Points, cycle:Points, plate_id):
+        plate = Points(self.dimensions)
+        for p in splits.points.keys():
+            if cycle.get_adjacent_neighbors(p[0], p[1]) != []:
+                plate.add_point(p[0], p[1], plate_id)
+        return plate
+
+
+
     def generate_from_splits(self, splits:Points):
         # splits is the output of unify_splits() in TectonicSplits
+        plate_id = 1
         splits = self.add_boundaries(splits)
         inverse_neighbors = self.generate_inverse_neighbors(splits)
-        return inverse_neighbors
+        while inverse_neighbors.points != {}:
+            cycle = self.extract_cycle(inverse_neighbors, random.choice(list(inverse_neighbors.points.keys())))
+            self.plates.append(self.create_aligned_plate(splits, cycle, plate_id))
+            plate_id += 1
