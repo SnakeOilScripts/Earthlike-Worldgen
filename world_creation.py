@@ -287,23 +287,30 @@ class TectonicPlates():
         return points
 
 
-    def generate_inverse_neighbors(self, points:Points, value=1):
+    def generate_inverse_neighbors(self, base:Points, value=1):
         neighbors = Points(self.dimensions)
-        for p in points.points.keys():
-            for n in points.get_adjacent_empty_within_dimensions(p[0], p[1]):
+        for p in base.points.keys():
+            for n in base.get_adjacent_empty_within_dimensions(p[0], p[1]):
                 neighbors.add_point(n[0], n[1], value)
         return neighbors
 
 
-    def extract_cycle(self, points:Points, start):
-        circle = Points(self.dimensions)
-        neighbors = points.get_adjacent_neighbors(start[0], start[1])
-        while neighbors != []:
-            circle.add_point(start[0], start[1], points[start])
-            del points[start]
-            start = neighbors[0]
-            neighbors = points.get_adjacent_neighbors(start[0], start[1])
-        return circle
+    def extract_cycle(self, base:Points, start):
+        cycle = Points(self.dimensions)
+        self.follow_cycle(cycle, base, start)
+        for p in cycle.points.keys():
+            del base.points[p]
+        return cycle
+
+
+    def follow_cycle(self, cycle:Points, base:Points, start):
+        point_added = cycle.add_point(start[0], start[1], base.points[start])
+        if point_added == -1:
+            return
+        else:
+            for neighbor in base.get_adjacent_nondiagonal_neighbors(start[0], start[1]):
+                self.follow_cycle(cycle, base, neighbor)
+        return
 
 
     def generate_from_splits(self, splits:Points):

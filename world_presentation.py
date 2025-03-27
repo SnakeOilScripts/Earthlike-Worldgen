@@ -16,10 +16,10 @@ def print_points_ascii(points):
     print("\n", end="")
 
 
-dimensions = ((0, 100),(0, 100))
+dimensions = ((0, 70),(0, 70))
 
 w = World(dimensions)
-w.prepare_tectonics(7, 20)
+w.prepare_tectonics(7, 15)
 
 print_points_ascii(w.tectonics.unify_splits())
 
@@ -41,4 +41,9 @@ splits = w.tectonics.unify_splits()
 plates = TectonicPlates(dimensions)
 
 complement = plates.generate_from_splits(splits)
+print_points_ascii(complement)
+
+cycle1 = plates.extract_cycle(complement, random.choice(list(complement.points.keys())))
+
+print_points_ascii(cycle1)
 print_points_ascii(complement)
