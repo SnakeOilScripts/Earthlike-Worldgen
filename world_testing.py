@@ -1,16 +1,12 @@
 from world_creation import *
 
-dimensions = ((0,50),(0,50))
+dimensions = ((0,3),(0,3))
 
-t = Tectonics(dimensions)
-split1 = Line(dimensions, 1)
-split2 = Line(dimensions, 2)
+base_surface = Coordinates(dimensions)
 
-split1.points = {(0,0):1, (1,1):1, (1,2):1, (2,3):1}
-split2.points = {(3,3):2, (2,4):2, (3,2):2, (3,4):2, (1,4):2}
-
-t.splits.append(split1)
-t.splits.append(split2)
-
-print(t.get_split_options(split1))
-print(t.split_unfinished(split1))
+magma_currents = MagmaCurrentMap(dimensions, base_surface)
+print(magma_currents.surface_map.coordinates)
+base_surface.coordinates = np.array([[1,1,1],[0,2,1],[1,1,1]])
+magma_currents.update_surface_map(base_surface)
+vector_map = magma_currents.generate_magma_current_vectors()
+print(vector_map.coordinates[0,0], vector_map.coordinates[0,2], vector_map.coordinates[1,1])

@@ -2,6 +2,7 @@ import random
 import math
 import sys
 import numpy as np
+import copy
 
 random.seed()
 
@@ -31,15 +32,9 @@ class World:
 
 
     def generate_plates(self):
-        tectonics_finished = 0
-        while tectonics_finished == 0:
-            teconics_finished = self.tectonics.develop_splits()
-        w.tectonics.activate_unfinished_splits()
-        w.tectonics.distance_irrelevant()
-        while tectonics_finished == 0:
-            teconics_finished = self.tectonics.develop_splits()
         self.plates = TectonicPlates(self.dimensions)
         self.plates.generate_from_splits(self.tectonics.unify_splits())
+        self.plates.generate_all_filled_plates()
 
 
     def simulate_plate_movement(self):
@@ -49,26 +44,41 @@ class World:
 class Coordinates:
     # intended for cases where every point of the coordinate system has to have a value, like elevation
     def __init__(self, dimensions):
-        coordinates_list = [[0]*dimensions[1]]*dimensions[0]
-        self.coordinates = np.array(coordinates)
+        coordinates_list = [[0]*(dimensions[1][1] - dimensions[1][0])] * (dimensions[0][1] - dimensions[0][0])
+        self.coordinates = np.array(coordinates_list)
         self.dimensions = dimensions
 
 
-    def point_outside_dimensions(self, x, y):
+    def coordinate_outside_dimensions(self, x, y):
         return (x < self.dimensions[0][0] or x >= self.dimensions[0][1] or y < self.dimensions[1][0] or y >= self.dimensions[1][1])
 
 
-    def set_point_value(self, x, y, value):
-        if not self.point_outside_dimensions(x, y):
+    def set_coordinate_value(self, x, y, value):
+        if not self.coordinate_outside_dimensions(x, y):
             self.coordinates[x,y] = value
             return 0
         else:
             return -1
 
 
-    def as_matrix(self):
-        pass
+    def get_adjacent_coordinates(self, x, y):
+        return [(x-1,y-1),(x-1,y),(x-1,y+1),(x,y-1),(x,y+1),(x+1,y-1),(x+1,y),(x+1,y+1)]
 
+
+    def get_adjacent_coordinates_within_dimensions(self, x, y):
+        return [c for c in self.get_adjacent_coordinates(x,y) if not self.coordinate_outside_dimensions(c[0], c[1])]
+    
+
+    def get_coordinate_value(self, x, y):
+        return self.coordinates[x,y]
+
+
+class VectorMap(Coordinates):
+
+    def __init__(self, dimensions):
+        super().__init__(dimensions)
+        base_vectors = [[(0,0)] * (dimensions[1][1] - dimensions[1][0])] * (dimensions[0][1] - dimensions[0][0])
+        self.coordinates = np.array(base_vectors)
 
 
 class Points:
@@ -201,6 +211,15 @@ class TectonicSplits():
         self.split_id = 1
         self.straight_line_bias = straight_line_bias
 
+
+    def generate(self):
+        tectonics_finished = 0
+        while tectonics_finished == 0:
+            teconics_finished = self.develop_splits()
+        self.activate_unfinished_splits()
+        self.distance_irrelevant()
+        while tectonics_finished == 0:
+            teconics_finished = self.tectonics.develop_splits()
 
     def add_split(self, x, y):
         self.split_bases.add_point(x, y, self.split_id)
@@ -400,3 +419,34 @@ class TectonicPlates():
     def generate_all_filled_plates(self):
         for plate in self.plates:
             self.filled_plates.append(self.generate_filled_plate(plate))
+
+
+class MagmaCurrentMap(Coordinates):
+
+    def __init__(self, dimensions, base_surface:Coordinates):
+        self.surface_map = copy.deepcopy(base_surface)
+        super().__init__(dimensions)
+
+
+    def generate_magma_current_vectors(self):
+        vector_map = VectorMap(self.dimensions)
+        for x in range(self.dimensions[0][1] - self.dimensions[0][0]):
+            for y in range(self.dimensions[1][1] - self.dimensions[1][0]):
+                neighbors = self.get_adjacent_coordinates_within_dimensions(x, y)
+                neighbors.sort(key=lambda param: self.surface_map.get_coordinate_value(param[0],param[1]))
+                if self.surface_map.get_coordinate_value(neighbors[0][0], neighbors[0][1]) < self.surface_map.get_coordinate_value(x,y):
+                    vector_map.set_coordinate_value(x, y, (neighbors[0][0] - x, neighbors[0][1] - y))
+                else:
+                    vector_map.set_coordinate_value(x, y, (0,0))
+        return vector_map
+
+
+    def update_surface_map(self, new_map:Coordinates):
+        self.surface_map = copy.deepcopy(new_map)
+
+
+class SurfaceMap(Coordinates):
+
+    def apply_erosion(self):
+        pass
+    

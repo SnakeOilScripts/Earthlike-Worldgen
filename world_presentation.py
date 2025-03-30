@@ -19,7 +19,7 @@ def print_points_ascii(points):
 dimensions = ((0, 70),(0, 70))
 
 w = World(dimensions)
-w.prepare_tectonics(4, 15)
+w.prepare_tectonics(8, 15)
 
 print_points_ascii(w.tectonics.unify_splits())
 
