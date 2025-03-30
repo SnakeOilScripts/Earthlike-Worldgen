@@ -1,6 +1,7 @@
 import random
 import math
 import sys
+import numpy as np
 
 random.seed()
 
@@ -29,14 +30,49 @@ class World:
             self.tectonics.generate_random_split(min_distance)
 
 
-    def generate(self):
+    def generate_plates(self):
         tectonics_finished = 0
         while tectonics_finished == 0:
             teconics_finished = self.tectonics.develop_splits()
+        w.tectonics.activate_unfinished_splits()
+        w.tectonics.distance_irrelevant()
+        while tectonics_finished == 0:
+            teconics_finished = self.tectonics.develop_splits()
+        self.plates = TectonicPlates(self.dimensions)
+        self.plates.generate_from_splits(self.tectonics.unify_splits())
+
+
+    def simulate_plate_movement(self):
+        pass
+
+
+class Coordinates:
+    # intended for cases where every point of the coordinate system has to have a value, like elevation
+    def __init__(self, dimensions):
+        coordinates_list = [[0]*dimensions[1]]*dimensions[0]
+        self.coordinates = np.array(coordinates)
+        self.dimensions = dimensions
+
+
+    def point_outside_dimensions(self, x, y):
+        return (x < self.dimensions[0][0] or x >= self.dimensions[0][1] or y < self.dimensions[1][0] or y >= self.dimensions[1][1])
+
+
+    def set_point_value(self, x, y, value):
+        if not self.point_outside_dimensions(x, y):
+            self.coordinates[x,y] = value
+            return 0
+        else:
+            return -1
+
+
+    def as_matrix(self):
+        pass
 
 
 
 class Points:
+    # indented for cases where only some points need a value, like "is volcano" = 0/1
     def __init__(self, dimensions):
         # dimensions are [(xmin,xmax),(ymin,ymax)]
         self.dimensions = dimensions
@@ -50,10 +86,15 @@ class Points:
     def add_point(self, x, y, value):
         if self.point_outside_dimensions(x,y):
             return -1
-        if (x,y) not in self.points.keys():
+        if (x,y) not in self.points:
             self.points[(x,y)] = value
         else:
             return -1
+
+
+    def merge_points(self, merge:dict):
+        self.points = self.points.copy()
+        self.points.update(merge.copy())
 
 
     def get_distance(self, point1, point2):
@@ -79,14 +120,14 @@ class Points:
 
     def get_adjacent_empty_within_dimensions(self, x, y):
         adjacent_points = self.get_adjacent_points_within_dimensions(x, y)
-        return [p for p in adjacent_points if p not in self.points.keys()]
+        return [p for p in adjacent_points if p not in self.points]
 
 
     def get_adjacent_neighbors(self, x, y):
         possible_neighbors = self.get_adjacent_points(x, y)
         neighbors = []
         for p in possible_neighbors:
-            if p in self.points.keys():
+            if p in self.points:
                 neighbors.append(p)
         return neighbors
     
@@ -100,7 +141,7 @@ class Points:
         possible_neighbors = self.get_adjacent_points(x, y)
         neighbors = []
         for p in possible_neighbors:
-            if p in self.points.keys():
+            if p in self.points:
                 if self.points[p] == value:
                     neighbors.append(p)
         return neighbors
@@ -109,7 +150,7 @@ class Points:
     def get_closest_neighbor(self, base_point):
         # base_point = (x,y)
         clostest_neighbor = (self.dimensions[0][1] * 10, self.dimensions[1][0]) # impossible to reach therefore highest distance
-        for p in self.points.keys():
+        for p in self.points:
             if p == base_point:
                 continue
             if self.get_distance(p, base_point) < self.get_distance(clostest_neighbor, base_point):
@@ -129,7 +170,7 @@ class Line(Points):
 
 
     def get_ends(self):
-        return [p for p in self.points.keys() if len(self.get_adjacent_neighbors(p[0], p[1])) < 2]
+        return [p for p in self.points if len(self.get_adjacent_neighbors(p[0], p[1])) < 2]
 
 
     def set_distance_irrelevant(self, relevancy:bool):
@@ -175,7 +216,7 @@ class TectonicSplits():
         # randomly pick a point for a tectonic break/volcano, with a minimum distance from all other previous points
         attempts = 0
         point = (random.randint(self.dimensions[0][0], self.dimensions[0][1]-1), random.randint(self.dimensions[1][0], self.dimensions[1][1]-1))
-        if len(self.split_bases.points.keys()) == 0:
+        if len(self.split_bases.points) == 0:
             self.add_split(point[0], point[1])
         else:
             while self.split_bases.get_distance(point, self.split_bases.get_closest_neighbor(point)) < minimum_distance:
@@ -275,6 +316,7 @@ class TectonicPlates():
     def __init__(self, dimensions):
         self.dimensions = dimensions
         self.plates = []
+        self.filled_plates = []
 
 
     def add_boundaries(self, points:Points, value=1):
@@ -289,7 +331,7 @@ class TectonicPlates():
 
     def generate_inverse_neighbors(self, base:Points, value=1):
         neighbors = Points(self.dimensions)
-        for p in base.points.keys():
+        for p in base.points:
             for n in base.get_adjacent_empty_within_dimensions(p[0], p[1]):
                 neighbors.add_point(n[0], n[1], value)
         return neighbors
@@ -298,7 +340,7 @@ class TectonicPlates():
     def extract_cycle(self, base:Points, start):
         cycle = Points(self.dimensions)
         self.follow_cycle(cycle, base, start)
-        for p in cycle.points.keys():
+        for p in cycle.points:
             del base.points[p]
         return cycle
 
@@ -315,11 +357,10 @@ class TectonicPlates():
 
     def create_aligned_plate(self, splits:Points, cycle:Points, plate_id):
         plate = Points(self.dimensions)
-        for p in splits.points.keys():
+        for p in splits.points:
             if cycle.get_adjacent_neighbors(p[0], p[1]) != []:
                 plate.add_point(p[0], p[1], plate_id)
         return plate
-
 
 
     def generate_from_splits(self, splits:Points):
@@ -331,3 +372,31 @@ class TectonicPlates():
             cycle = self.extract_cycle(inverse_neighbors, random.choice(list(inverse_neighbors.points.keys())))
             self.plates.append(self.create_aligned_plate(splits, cycle, plate_id))
             plate_id += 1
+    
+
+    def find_plate_interior_neighbors(self, plate:Points):
+        # finds the neighbors of the plate boundary which stand on the inside of the plate - useful for gathering all points of the plate
+        inverse_neighbors = self.generate_inverse_neighbors(plate)
+        neighbor_cycles = []
+        for i in range(2):
+            try: # fails if no two cycles (or none at all) can be extracted - this is only the case if the "base" is a line or double line, instead of a cycle itself
+                cycle = self.extract_cycle(inverse_neighbors, random.choice(list(inverse_neighbors.points.keys())))
+            except:
+                return -1
+            neighbor_cycles.append(cycle)
+        if len(neighbor_cycles[0].points) < len(neighbor_cycles[1].points):
+            return neighbor_cycles[0]
+        else:
+            return neighbor_cycles[1]
+    
+
+    def generate_filled_plate(self, plate:Points):
+        filled_plate = Points(self.dimensions)
+        while plate != -1:
+            filled_plate.merge_points(plate.points)
+            plate = self.find_plate_interior_neighbors(plate)
+    
+
+    def generate_all_filled_plates(self):
+        for plate in self.plates:
+            self.filled_plates.append(self.generate_filled_plate(plate))
