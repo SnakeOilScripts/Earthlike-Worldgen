@@ -253,7 +253,7 @@ class TectonicSplits():
                                     if (split.get_distance(p, split.get_middle_point()) >= end_distance or split.distance_irrelevant)
                                     and (len(split.get_adjacent_neighbors(p[0], p[1])) < 2) # circles are never allowed
                                     and not any([p in s.points for s in self.splits])
-                                    and ( sum([len(s.get_adjacent_neighbors(end[0], end[1])) for s in self.splits]) < 4)    # no parallel lines, except when inserting final points
+                                    and ( sum([len(s.get_adjacent_neighbors(end[0], end[1])) for s in self.splits]) < 4)    # no parallel lines
                                 ]
             if allowed_neighbors == []:
                 continue
@@ -292,16 +292,17 @@ class TectonicSplits():
             chosen_option = random.choice(split_options[2:])
         split.add_point(chosen_option[0], chosen_option[1])
         return 0
-    
+    d
 
     def split_unfinished(self, split):
         ends = split.get_ends()
         unified_splits = self.unify_splits()
         for end in ends:
-            for n in split.get_adjacent_points(end[0], end[1]):
-                if split.point_outside_dimensions(n[0], n[1]) or n in unified_splits.points:
-                    break
-                return True
+            if any([split.point_outside_dimensions(n[0], n[1]) for n in split.get_adjacent_points(end[0], end[1])]):
+                continue
+            elif len(unified_splits.get_adjacent_neighbors(end[0], end[1])) > 1:
+                continue
+            return True
         return False
 
 
