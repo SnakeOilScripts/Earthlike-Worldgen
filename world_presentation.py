@@ -16,7 +16,7 @@ def print_points_ascii(points):
     print("\n", end="")
 
 
-dimensions = ((0, 50),(0, 50))
+dimensions = ((0, 100),(0, 100))
 
 w = World(dimensions)
 w.prepare_tectonics(8, 10)

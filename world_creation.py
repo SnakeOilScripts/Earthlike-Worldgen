@@ -176,7 +176,6 @@ class Line(Points):
         self.value = value
         self.active = True
         self.distance_irrelevant = False
-        self.circles_allowed = False
         super().__init__(dimensions)
 
 
@@ -186,10 +185,6 @@ class Line(Points):
 
     def set_distance_irrelevant(self, relevancy:bool):
         self.distance_irrelevant = relevancy
-
-
-    def set_circle_allowed(self, forbidden:bool):
-        self.circles_allowed = forbidden
 
 
     def get_middle_point(self):
@@ -217,12 +212,11 @@ class TectonicSplits():
         tectonics_finished = 0
         while tectonics_finished == 0:
             tectonics_finished = self.develop_splits()
-        #tectonics_finished = 0
-        #self.activate_unfinished_splits()
-        #self.distance_irrelevant()
-        #self.allow_circles()
-        #while tectonics_finished == 0:
-        #    tectonics_finished = self.develop_splits()
+        tectonics_finished = 0
+        self.activate_unfinished_splits()
+        self.distance_irrelevant()
+        while tectonics_finished == 0:
+            tectonics_finished = self.develop_splits()
 
 
     def add_split(self, x, y):
@@ -257,9 +251,9 @@ class TectonicSplits():
             # eligible neighbors are all adjacent points that have a higher or equal distance from the middle point than the specified end
             allowed_neighbors = [  p for p in split.get_adjacent_points_within_dimensions(end[0], end[1])
                                     if (split.get_distance(p, split.get_middle_point()) >= end_distance or split.distance_irrelevant)
-                                    and (len(split.get_adjacent_neighbors(p[0], p[1])) < 2)
+                                    and (len(split.get_adjacent_neighbors(p[0], p[1])) < 2) # circles are never allowed
                                     and not any([p in s.points for s in self.splits])
-                                    and (sum([len(s.get_adjacent_neighbors(p[0], p[1])) for s in self.splits])  < 4)    # no parallel lines
+                                    and ( sum([len(s.get_adjacent_neighbors(end[0], end[1])) for s in self.splits]) < 4)    # no parallel lines, except when inserting final points
                                 ]
             if allowed_neighbors == []:
                 continue
@@ -302,9 +296,10 @@ class TectonicSplits():
 
     def split_unfinished(self, split):
         ends = split.get_ends()
+        unified_splits = self.unify_splits()
         for end in ends:
             for n in split.get_adjacent_points(end[0], end[1]):
-                if split.point_outside_dimensions(n[0], n[1]) or any([n in s.points for s in self.splits if s.value != split.value]):
+                if split.point_outside_dimensions(n[0], n[1]) or n in unified_splits.points:
                     break
                 return True
         return False
@@ -314,11 +309,6 @@ class TectonicSplits():
         for split in self.splits:
             if self.split_unfinished(split):
                 split.active = True
-
-
-    def allow_circles(self):
-        for split in self.splits:
-            split.set_circle_allowed(True)
 
     
     def distance_irrelevant(self):
