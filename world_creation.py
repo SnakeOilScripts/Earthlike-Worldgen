@@ -176,11 +176,12 @@ class Line(Points):
         self.value = value
         self.active = True
         self.distance_irrelevant = False
+        self.ends = []
         super().__init__(dimensions)
 
 
     def get_ends(self):
-        return [p for p in self.points if len(self.get_adjacent_neighbors(p[0], p[1])) < 2]
+        return self.ends
 
 
     def set_distance_irrelevant(self, relevancy:bool):
@@ -195,6 +196,14 @@ class Line(Points):
 
     def add_point(self, x, y):
         super().add_point(x, y, self.value)
+        if len(self.ends) < 2:
+            self.ends.append((x,y))
+        else:
+            if (x,y) in self.get_adjacent_points_within_dimensions(self.ends[0][0], self.ends[0][1]):
+                self.ends[0] = (x,y)
+            elif (x,y) in self.get_adjacent_points_within_dimensions(self.ends[1][0], self.ends[1][1]):
+                self.ends[1] = (x,y)
+
 
 
         
@@ -207,8 +216,9 @@ class TectonicSplits():
         self.split_id = 1
         self.straight_line_bias = straight_line_bias
 
-
-    def generate(self):
+    # TODO: what tends to happen is one split almost finishes a circle and remains stuck with one active end no matter what
+    # solution idea: instead of distance_irrelevant, a new split object is introduced once a split is out of options
+    def generate_legacy(self):
         tectonics_finished = 0
         while tectonics_finished == 0:
             tectonics_finished = self.develop_splits()
@@ -219,7 +229,52 @@ class TectonicSplits():
             tectonics_finished = self.develop_splits()
 
 
-    def add_split(self, x, y):
+    def generate(self):
+        while self.develop_splits() == 0:
+            continue
+
+
+    def finalize_and_extend_unfinished_splits(self):
+        unfinished_splits = [s for s in self.splits if self.split_unfinished(s)]
+        if len(unfinished_splits) == 0:
+            return 0
+        for unfinished_split in unfinished_splits:
+            for end in self.get_unfinished_split_ends(unfinished_split):
+                finalization_possible = self.finalize_split_end(unfinished_split, end)
+                if not finalization_possible:
+                    self.create_new_split_from_end(unfinished_split, end)
+        return -1
+
+
+    # points with two neighbors can be chosen, which breaks end identification, which breaks middle point calculation, which breaks option calculation
+    def finalize_split_end(self, split, end):
+        # make a link with any other split, if possible, otherwise return False
+        final_point_options = []
+        for n in split.get_adjacent_points_within_dimensions(end[0], end[1]):
+            if any([len(s.get_adjacent_neighbors(n[0], n[1])) > 0 for s in self.splits if s.value != split.value]):
+                final_point_options.append(n)
+            elif any([split.point_outside_dimensions(p[0], p[1]) for p in split.get_adjacent_points(n[0], n[1])]):
+                final_point_options.append(n)
+        if len(final_point_options) == 0:
+            return False
+        else:
+            final_point = random.choice(final_point_options)
+            split.add_point(final_point[0], final_point[1])
+            return True
+
+
+    def create_new_split_from_end(self, split, end):
+        self.split_id += 1
+        new_split = Line(self.dimensions, self.split_id)
+        initial_neighbor = random.choice(split.get_adjacent_neighbors(end[0], end[1]))
+        del split.points[end]
+        del split.points[initial_neighbor]
+        new_split.add_point(end[0], end[1])
+        new_split.add_point(initial_neighbor[0], initial_neighbor[1])
+        self.splits.append(new_split)
+
+
+    def add_initial_split(self, x, y):
         self.split_bases.add_point(x, y, self.split_id)
         l = Line(self.dimensions, self.split_id)
         l.add_point(x, y)
@@ -234,14 +289,14 @@ class TectonicSplits():
         attempts = 0
         point = (random.randint(self.dimensions[0][0], self.dimensions[0][1]-1), random.randint(self.dimensions[1][0], self.dimensions[1][1]-1))
         if len(self.split_bases.points) == 0:
-            self.add_split(point[0], point[1])
+            self.add_initial_split(point[0], point[1])
         else:
             while self.split_bases.get_distance(point, self.split_bases.get_closest_neighbor(point)) < minimum_distance:
                 point = (random.randint(self.dimensions[0][0], self.dimensions[0][1]-1), random.randint(self.dimensions[1][0], self.dimensions[1][1]-1))
                 attempts += 1
                 if attempts >= max_attempts:
                     return -1
-            self.add_split(point[0], point[1])
+            self.add_initial_split(point[0], point[1])
     
 
     def get_split_options(self, split:Line):
@@ -276,7 +331,10 @@ class TectonicSplits():
     def get_active_splits(self):
         return [s for s in self.splits if s.active == True]
 
+    def get_unfinished_splits(self):
+        return [s for s in self.splits if self.split_unfinished(s)]
             
+
     def develop_splits(self):
         if not self.check_split_activity():
             return -1
@@ -294,16 +352,21 @@ class TectonicSplits():
         return 0
 
 
-    def split_unfinished(self, split):
-        ends = split.get_ends()
+    def get_unfinished_split_ends(self, split):
+        unfinished_ends = []
         unified_splits = self.unify_splits()
-        for end in ends:
+        for end in split.get_ends():
             if any([split.point_outside_dimensions(n[0], n[1]) for n in split.get_adjacent_points(end[0], end[1])]):
                 continue
             elif len(unified_splits.get_adjacent_neighbors(end[0], end[1])) > 1:
                 continue
-            return True
-        return False
+            unfinished_ends.append(end)
+        return unfinished_ends
+
+
+    def split_unfinished(self, split):
+        unfinished_ends = self.get_unfinished_split_ends(split)
+        return len(unfinished_ends) > 0
 
 
     def activate_unfinished_splits(self):
