@@ -292,7 +292,7 @@ class TectonicSplits():
             chosen_option = random.choice(split_options[2:])
         split.add_point(chosen_option[0], chosen_option[1])
         return 0
-    d
+
 
     def split_unfinished(self, split):
         ends = split.get_ends()
