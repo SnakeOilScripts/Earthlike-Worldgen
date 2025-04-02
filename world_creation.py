@@ -32,9 +32,10 @@ class World:
 
 
     def generate_plates(self):
+        self.tectonics.generate()
         self.plates = TectonicPlates(self.dimensions)
         self.plates.generate_from_splits(self.tectonics.unify_splits())
-        self.plates.generate_all_filled_plates()
+        #self.plates.generate_all_filled_plates()
 
 
     def simulate_plate_movement(self):
@@ -215,11 +216,14 @@ class TectonicSplits():
     def generate(self):
         tectonics_finished = 0
         while tectonics_finished == 0:
-            teconics_finished = self.develop_splits()
-        self.activate_unfinished_splits()
-        self.distance_irrelevant()
-        while tectonics_finished == 0:
-            teconics_finished = self.tectonics.develop_splits()
+            tectonics_finished = self.develop_splits()
+        #tectonics_finished = 0
+        #self.activate_unfinished_splits()
+        #self.distance_irrelevant()
+        #self.allow_circles()
+        #while tectonics_finished == 0:
+        #    tectonics_finished = self.develop_splits()
+
 
     def add_split(self, x, y):
         self.split_bases.add_point(x, y, self.split_id)
@@ -253,8 +257,9 @@ class TectonicSplits():
             # eligible neighbors are all adjacent points that have a higher or equal distance from the middle point than the specified end
             allowed_neighbors = [  p for p in split.get_adjacent_points_within_dimensions(end[0], end[1])
                                     if (split.get_distance(p, split.get_middle_point()) >= end_distance or split.distance_irrelevant)
-                                    and (len(split.get_adjacent_neighbors(p[0], p[1])) < 2 or split.circles_allowed)
+                                    and (len(split.get_adjacent_neighbors(p[0], p[1])) < 2)
                                     and not any([p in s.points for s in self.splits])
+                                    and (sum([len(s.get_adjacent_neighbors(p[0], p[1])) for s in self.splits])  < 4)    # no parallel lines
                                 ]
             if allowed_neighbors == []:
                 continue
@@ -359,19 +364,29 @@ class TectonicPlates():
     def extract_cycle(self, base:Points, start):
         cycle = Points(self.dimensions)
         self.follow_cycle(cycle, base, start)
-        for p in cycle.points:
-            del base.points[p]
         return cycle
 
 
     def follow_cycle(self, cycle:Points, base:Points, start):
-        point_added = cycle.add_point(start[0], start[1], base.points[start])
-        if point_added == -1:
-            return
-        else:
-            for neighbor in base.get_adjacent_nondiagonal_neighbors(start[0], start[1]):
-                self.follow_cycle(cycle, base, neighbor)
-        return
+        #neighbors = base.get_adjacent_nondiagonal_neighbors(start[0], start[1])
+        neighbors = [start]
+        while neighbors != []:
+            ends = []
+            for neighbor in neighbors:
+                ends += self.follow_nondiagonal_unforked_line(cycle, base, neighbor)
+            neighbors = ends
+            
+
+    def follow_nondiagonal_unforked_line(self, cycle:Points, base:Points, start):
+        if start not in base.points:
+            # necessary to avoid deletion of nonexistent key
+            return []
+        neighbors = [start]
+        while len(neighbors) == 1:
+            cycle.add_point(neighbors[0][0], neighbors[0][1], base.points[neighbors[0]])
+            del base.points[neighbors[0]]
+            neighbors = base.get_adjacent_nondiagonal_neighbors(neighbors[0][0], neighbors[0][1])
+        return neighbors
 
 
     def create_aligned_plate(self, splits:Points, cycle:Points, plate_id):
@@ -389,7 +404,8 @@ class TectonicPlates():
         inverse_neighbors = self.generate_inverse_neighbors(splits)
         while inverse_neighbors.points != {}:
             cycle = self.extract_cycle(inverse_neighbors, random.choice(list(inverse_neighbors.points.keys())))
-            self.plates.append(self.create_aligned_plate(splits, cycle, plate_id))
+            #self.plates.append(self.create_aligned_plate(splits, cycle, plate_id))
+            self.plates.append(cycle)
             plate_id += 1
     
 
@@ -422,7 +438,7 @@ class TectonicPlates():
 
 
 class MagmaCurrentMap(Coordinates):
-
+    # suction from subduction seems to be the strongest factor for plate movement, while magma currents explain the megacontinent-cycle
     def __init__(self, dimensions, base_surface:Coordinates):
         self.surface_map = copy.deepcopy(base_surface)
         super().__init__(dimensions)
@@ -446,7 +462,12 @@ class MagmaCurrentMap(Coordinates):
 
 
 class SurfaceMap(Coordinates):
-
+    # types of plate boundaries:
+    # - convergent (without subduction) -> fold mountains
+    # - convergent (with subduction) -> trench + mountains/volcanos
+    # - divergent -> mid-ocean ridge / rift valleys, volcanism
+    # - transform -> strike-slip-fault
+    # https://www.geologyin.com/2014/03/types-of-continental-boundaries.html
     def apply_erosion(self):
         pass
     

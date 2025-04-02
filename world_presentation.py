@@ -16,31 +16,15 @@ def print_points_ascii(points):
     print("\n", end="")
 
 
-dimensions = ((0, 70),(0, 70))
+dimensions = ((0, 50),(0, 50))
 
 w = World(dimensions)
-w.prepare_tectonics(8, 15)
-
+w.prepare_tectonics(8, 10)
 print_points_ascii(w.tectonics.unify_splits())
 
-
-while w.tectonics.develop_splits() == 0:
-    continue
+w.tectonics.generate()
 
 print_points_ascii(w.tectonics.unify_splits())
-
-w.tectonics.activate_unfinished_splits()
-w.tectonics.distance_irrelevant()
-
-while w.tectonics.develop_splits() == 0:
-    continue
-
-print_points_ascii(w.tectonics.unify_splits())
-
-splits = w.tectonics.unify_splits()
-plates = TectonicPlates(dimensions)
-
-plates.generate_from_splits(splits)
-
-for pl in plates.plates:
-    print_points_ascii(pl)
+print("unfinished splits remaining: " + str(len([s for s in w.tectonics.splits if w.tectonics.split_unfinished(s)])))
+#for plate in w.plates.plates:
+#    print_points_ascii(plate)
