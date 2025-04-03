@@ -15,16 +15,14 @@ def print_splitmap_ascii(split_map):
     
 
 
-dimensions = ((0, 50),(0, 50))
+dimensions = ((0, 500),(0, 500))
 
 w = World(dimensions)
-w.prepare_tectonics(1, 10)
+w.prepare_tectonics(10, 30)
 
-print_splitmap_ascii(w.tectonic_splits.split_map)
+#print_splitmap_ascii(w.tectonic_splits.split_map)
 
-for i in range(50):
-    w.tectonic_splits.develop_splits()
-    
+while w.tectonic_splits.develop_splits() == 0:
+    continue
 
-print_splitmap_ascii(w.tectonic_splits.split_map)
-#print(w.tectonic_splits.split_map.coordinates)
+#print_splitmap_ascii(w.tectonic_splits.split_map)

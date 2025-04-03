@@ -117,21 +117,17 @@ class Split:
         return math.sqrt(math.pow(x - self.center[0], 2) + math.pow(y - self.center[1], 2))
 
 
-    def end_active(self, end):
-        #active = False
-        #for n in self.shared_map.get_adjacent_coordinates(end[0], end[1]):
-        #    if len(self.shared_map.get_coordinate_value(n[0], n[1])) != 0 and self.value not in self.shared_map.get_coordinate_value(n[0], n[1]):
-        #        return True
-        return not any([
-                        (len(self.shared_map.get_coordinate_value(p[0],p[1])) != 0 and self.value not in self.shared_map.get_coordinate_value(p[0],p[1]))
-                        or
-                        self.shared_map.coordinate_outside_dimensions(p[0], p[1])
-                        for p in self.shared_map.get_adjacent_coordinates_within_dimensions(end[0], end[1])
-                        ])
+    def end_inactive(self, end):
+        for n in self.shared_map.get_adjacent_coordinates(end[0], end[1]):
+            if self.shared_map.coordinate_outside_dimensions(n[0], n[1]):
+                return True
+            if len(self.shared_map.get_coordinate_value(n[0], n[1])) != 0 and self.value not in self.shared_map.get_coordinate_value(n[0], n[1]):
+                return True
+        return False
 
 
     def get_active_ends(self):
-        return [end for end in self.ends if self.end_active(end)]
+        return [end for end in self.ends if not self.end_inactive(end)]
 
 
     def is_active(self):
