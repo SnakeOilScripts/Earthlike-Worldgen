@@ -1,21 +1,30 @@
 from world_creation import *
 import sys
 
-def print_points_ascii(points):
-    dimensions = points.dimensions
-    for y in range(dimensions[1][0], dimensions[1][1]):
-        print("|", end="")
-        for x in range(dimensions[0][0], dimensions[0][1]):
-            if (x,y) in points.points.keys():
+def print_splitmap_ascii(split_map):
+    for y in range(split_map.dimensions[1][0], split_map.dimensions[1][1]):
+        for x in range(split_map.dimensions[0][0], split_map.dimensions[0][1]):
+            if len(split_map.get_coordinate_value(x, y)) > 0:
                 print("#", end="")
             else:
                 print(":", end="")
-        print("\n", end="")
-    for x in range(dimensions[0][0], dimensions[0][1]+1):
+        print("")
+    for x in range(split_map.dimensions[0][0], split_map.dimensions[0][1]):
         print("_", end="")
-    print("\n", end="")
+    print("")
+    
 
 
 dimensions = ((0, 50),(0, 50))
 
 w = World(dimensions)
+w.prepare_tectonics(1, 10)
+
+print_splitmap_ascii(w.tectonic_splits.split_map)
+
+for i in range(50):
+    w.tectonic_splits.develop_splits()
+    
+
+print_splitmap_ascii(w.tectonic_splits.split_map)
+#print(w.tectonic_splits.split_map.coordinates)

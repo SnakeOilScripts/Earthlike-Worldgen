@@ -23,13 +23,25 @@ class World:
 
     def __init__(self, dimensions):
         self.dimensions = dimensions
+    
+
+    def prepare_tectonics(self, n_splits, min_distance):
+        self.tectonic_splits = TectonicSplits(self.dimensions)
+        for i in range(n_splits):
+            self.tectonic_splits.add_initial_split(min_distance)
 
 
 class ObjectMap:
 
     def __init__(self, dimensions, base_object):
         self.dimensions = dimensions
-        coordinates_list = [[base_object]*(dimensions[1][1] - dimensions[1][0])] * (dimensions[0][1] - dimensions[0][0])
+        coordinates_list = []
+        for y in range(dimensions[1][0], dimensions[1][1]):
+            x_list = []
+            for x in range(dimensions[0][0], dimensions[0][1]):
+                x_list.append(copy.deepcopy(base_object))
+            coordinates_list.append(x_list)
+        #coordinates_list = [[copy.deepcopy(base_object)]*(dimensions[1][1] - dimensions[1][0])] * (dimensions[0][1] - dimensions[0][0])
         self.coordinates = np.array(coordinates_list)
     
 
@@ -47,6 +59,10 @@ class ObjectMap:
 
     def get_coordinate_value(self, x, y):
         return self.coordinates[x,y]
+    
+
+    def get_distance(self, x1, y1, x2, y2):
+        return math.sqrt(math.pow(x1-x2,2) + math.pow(y1-y2,2))
 
 
 class SplitMap(ObjectMap):
@@ -56,6 +72,10 @@ class SplitMap(ObjectMap):
 
     def add_coordinate_value(self, x, y, value):
         self.coordinates[x,y].add(value)
+    
+
+    def get_adjacent_neighbors_of_value(self, x, y, value):
+        return [c for c in self.get_adjacent_coordinates_within_dimensions(x, y) if value in self.get_coordinate_value(c[0], c[1])]
 
 
 class VectorMap(ObjectMap):
@@ -78,28 +98,118 @@ class Split:
         self.shared_map.add_coordinate_value(x, y, self.value)
     
 
-    def add_end(self, x, y):
+    def set_end(self, x, y):
         self.ends.add((x,y))
 
 
     def extend_at_end(self, old_end, x, y):
-        self.ends.remove(old_end)
-        self.add_end(x, y)
+        if len(self.ends) == 2:
+            self.ends.remove(old_end)
+        self.set_end(x, y)
         self.add_point(x, y)
 
     
-    def add_center(self, x, y):
+    def set_center(self, x, y):
         self.center = (x,y)
 
     
-    def get_center_distance(x, y):
+    def get_center_distance(self, x, y):
         return math.sqrt(math.pow(x - self.center[0], 2) + math.pow(y - self.center[1], 2))
 
 
+    def end_active(self, end):
+        #active = False
+        #for n in self.shared_map.get_adjacent_coordinates(end[0], end[1]):
+        #    if len(self.shared_map.get_coordinate_value(n[0], n[1])) != 0 and self.value not in self.shared_map.get_coordinate_value(n[0], n[1]):
+        #        return True
+        return not any([
+                        (len(self.shared_map.get_coordinate_value(p[0],p[1])) != 0 and self.value not in self.shared_map.get_coordinate_value(p[0],p[1]))
+                        or
+                        self.shared_map.coordinate_outside_dimensions(p[0], p[1])
+                        for p in self.shared_map.get_adjacent_coordinates_within_dimensions(end[0], end[1])
+                        ])
 
-class MagmaCurrentMap(Coordinates):
+
+    def get_active_ends(self):
+        return [end for end in self.ends if self.end_active(end)]
+
+
+    def is_active(self):
+        return len(self.get_active_ends()) > 0
+
+
+
+class TectonicSplits:
+    def __init__(self, dimensions, line_bias=0.6):
+        self.dimensions = dimensions
+        self.line_bias = line_bias
+        self.split_map = SplitMap(dimensions)
+        self.split_id = 0
+        self.splits = []
+    
+
+    def initialize_split(self, center):
+        new_split = Split(self.split_map, self.split_id)
+        new_split.add_point(center[0], center[1])
+        new_split.set_end(center[0], center[1])
+        new_split.set_center(center[0], center[1])
+        first_neighbor = random.choice(self.split_map.get_adjacent_coordinates_within_dimensions(center[0], center[1]))
+        new_split.extend_at_end(center, first_neighbor[0], first_neighbor[1])
+        self.splits.append(new_split)
+        self.split_id += 1
+    
+
+    def add_initial_split(self, min_distance, max_attempts=100):
+        for attempt in range(max_attempts):
+            rejected = False
+            new_center = (random.randint(self.dimensions[0][0], self.dimensions[0][1]-1), random.randint(self.dimensions[1][0], self.dimensions[1][1]-1))
+            for s in self.splits:
+                if s.get_center_distance(new_center[0], new_center[1]) < min_distance:
+                    rejected = True
+                    break
+            if not rejected:
+                self.initialize_split(new_center)
+                break
+    
+
+    def get_active_splits(self):
+        return [s for s in self.splits if s.is_active()]
+
+
+    def develop_splits(self):
+        active_splits = self.get_active_splits()
+        if active_splits == []:
+            return -1
+        split = random.choice(active_splits)
+        chosen_end = random.choice(split.get_active_ends())
+        options = self.get_split_options(split, chosen_end) # options are artificially padded to fit the straight_bias
+        chosen_option = random.choice(options)
+        split.extend_at_end(chosen_end, chosen_option[0], chosen_option[1])
+        return 0
+
+
+    def get_split_options(self, split, end):
+        options = []
+        for n in self.split_map.get_adjacent_coordinates_within_dimensions(end[0], end[1]):
+            if len(self.split_map.get_adjacent_neighbors_of_value(n[0], n[1], split.value)) >= 2:
+                # 90 degree angles & loopbacks are forbidden
+                continue
+            elif split.value in self.split_map.get_coordinate_value(n[0], n[1]):
+                # no re-addings of existing coordinates
+                continue
+            options.append(n)
+        options.sort(key=lambda x: split.get_center_distance(x[0], x[1]), reverse=True)
+        bias_options = options[0]
+        bias_size = len(options[1:]) / (1 - self.line_bias) - len(options[1:])
+        options += [bias_options] * int(bias_size)
+        return options
+
+
+
+
+class MagmaCurrentMap:
     # suction from subduction seems to be the strongest factor for plate movement, while magma currents explain the megacontinent-cycle
-    def __init__(self, dimensions, base_surface:Coordinates):
+    def __init__(self, dimensions, base_surface:ObjectMap):
         self.surface_map = copy.deepcopy(base_surface)
         super().__init__(dimensions)
 
@@ -117,11 +227,11 @@ class MagmaCurrentMap(Coordinates):
         return vector_map
 
 
-    def update_surface_map(self, new_map:Coordinates):
+    def update_surface_map(self, new_map:ObjectMap):
         self.surface_map = copy.deepcopy(new_map)
 
 
-class SurfaceMap(Coordinates):
+class SurfaceMap:
     # types of plate boundaries:
     # - convergent (without subduction) -> fold mountains
     # - convergent (with subduction) -> trench + mountains/volcanos
