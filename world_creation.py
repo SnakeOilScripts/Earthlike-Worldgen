@@ -169,6 +169,16 @@ class Split:
                 return n
 
 
+    def get_other_end(self, end):
+        ends = list(self.ends)
+        if end == ends[0]:
+            return ends[1]
+        elif end == ends[1]:
+            return ends[0]
+        else:
+            return -1
+
+
     def backtrack_end(self, x, y):
         # the option choice guarantees that each end only has one neighbor in the same split
         previous_end = self.get_neighbor(x, y)
@@ -179,7 +189,7 @@ class Split:
 
 
 class TectonicSplits:
-    def __init__(self, dimensions, line_bias=0.8):
+    def __init__(self, dimensions, line_bias=0.75):
         self.dimensions = dimensions
         self.line_bias = line_bias
         self.split_map = SplitMap(dimensions)
@@ -246,7 +256,8 @@ class TectonicSplits:
         if options == []:
             split.backtrack_end(end[0], end[1])
             return -1
-        options.sort(key=lambda x: split.get_center_distance(x[0], x[1]), reverse=True)
+        other_end = split.get_other_end(end)
+        options.sort(key=lambda x: split.shared_map.get_distance(x[0], x[1], other_end[0], other_end[1]), reverse=True)
         bias_options = options[0]
         bias_size = len(options[1:]) / (1 - self.line_bias) - len(options[1:])
         options += [bias_options] * int(bias_size)
