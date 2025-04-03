@@ -189,7 +189,7 @@ class Split:
 
 
 class TectonicSplits:
-    def __init__(self, dimensions, line_bias=0.75):
+    def __init__(self, dimensions, line_bias=0.6):
         self.dimensions = dimensions
         self.line_bias = line_bias
         self.split_map = SplitMap(dimensions)
