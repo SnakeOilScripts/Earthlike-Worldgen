@@ -81,6 +81,15 @@ class SplitMap(ObjectMap):
     def get_adjacent_neighbors_of_value(self, x, y, value):
         return [c for c in self.get_adjacent_coordinates_within_dimensions(x, y) if value in self.get_coordinate_value(c[0], c[1])]
 
+    
+    def get_all_coordinates_containing_value(self, value):
+        coordinates = []
+        for y in range(self.dimensions[1][0], self.dimensions[1][1]):
+            for x in range(self.dimensions[0][0], self.dimensions[0][1]):
+                if value in self.get_coordinate_value(x, y):
+                    coordinates.append((x,y))
+        return coordinates
+
 
 class VectorMap(ObjectMap):
     def __init__(self, dimensions):
@@ -156,7 +165,7 @@ class Split:
 
     def get_neighbor(self, x, y):
         for n in self.shared_map.get_adjacent_coordinates_within_dimensions(x, y):
-            if self.value in self.shared_map.get_coordinate_value(x, y):
+            if self.value in self.shared_map.get_coordinate_value(n[0], n[1]):
                 return n
 
 
@@ -212,7 +221,7 @@ class TectonicSplits:
             return 1
         split = random.choice(active_splits)
         chosen_end = random.choice(split.get_active_ends())
-        options = self.get_split_options(split, chosen_end) # options are artificially padded to fit the straight_bias
+        options = self.get_split_options(split, chosen_end) # options are artificially padded to fit the line_bias
         if options == -1:
             return 0
         chosen_option = random.choice(options)
