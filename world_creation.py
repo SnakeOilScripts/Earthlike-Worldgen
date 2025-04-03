@@ -128,8 +128,9 @@ class Split:
 
     def get_center(self):
         ends = list(self.ends)
-        return (int((ends[0][0] - ends[1][0])/2), int((ends[0][1] - ends[1][1])/2))
-    
+        vector = (int((ends[0][0] - ends[1][0])/2), int((ends[0][1] - ends[1][1])/2))
+        return (ends[0][0]+vector[0], ends[0][1]+vector[1])
+
 
     def get_center_distance(self, x, y):
         center = self.get_center()
@@ -162,14 +163,14 @@ class Split:
     def backtrack_end(self, x, y):
         # the option choice guarantees that each end only has one neighbor in the same split
         previous_end = self.get_neighbor(x, y)
-        self.remove_coordinate_value(x, y, self.value)
+        self.shared_map.remove_coordinate_value(x, y, self.value)
         self.remove_end(x, y)
-        self.set_end(previous_end)
+        self.set_end(previous_end[0], previous_end[1])
         self.option_blacklist.add((x,y))
 
 
 class TectonicSplits:
-    def __init__(self, dimensions, line_bias=0.7):
+    def __init__(self, dimensions, line_bias=0.8):
         self.dimensions = dimensions
         self.line_bias = line_bias
         self.split_map = SplitMap(dimensions)

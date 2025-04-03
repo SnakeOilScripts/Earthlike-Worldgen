@@ -24,6 +24,8 @@ print_splitmap_ascii(w.tectonic_splits.split_map)
 finished = 0
 
 while finished == 0:
+    finished = w.tectonic_splits.develop_splits()
+    """
     try:
         finished = w.tectonic_splits.develop_splits()
     except:
@@ -36,5 +38,5 @@ while finished == 0:
             print(w.tectonic_splits.get_split_options(active_splits[0], end))
         print("failed")
         break
-
+    """
 print_splitmap_ascii(w.tectonic_splits.split_map)
