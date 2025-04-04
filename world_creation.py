@@ -25,10 +25,10 @@ class World:
         self.dimensions = dimensions
     
 
-    def prepare_tectonics(self, n_splits, min_distance):
+    def prepare_tectonics(self, n_splits, min_split_distance, min_goal_distance):
         self.tectonic_splits = TectonicSplits(self.dimensions)
         for i in range(n_splits):
-            self.tectonic_splits.add_initial_split(min_distance)
+            self.tectonic_splits.add_initial_split(min_split_distance, min_goal_distance)
 
 
 class ObjectMap:
@@ -105,34 +105,45 @@ class Split:
         self.shared_map = shared_map
         self.value = value
         self.option_blacklist = set()
-        self.ends = set()
+        self.ends = dict()
 
 
     def add_point(self, x, y):
         self.shared_map.add_coordinate_value(x, y, self.value)
     
 
-    def set_end(self, x, y):
-        self.ends.add((x,y))
+    def set_end(self, x, y, goal):
+        self.ends[(x,y)] = goal
+    
+
+    def get_end_goal(self, end):
+        if end in self.ends:
+            return self.ends[end]
+        else:
+            return None
 
 
-    def remove_end(self, x, y):
-        if (x,y) in self.ends:
-            self.ends.remove((x,y))
+    def remove_end(self, end):
+        if end in self.ends:
+            del self.ends[end]
             return 1
         else:
             return -1
 
 
     def extend_at_end(self, old_end, x, y):
-        if len(self.ends) == 2:
-            self.ends.remove(old_end)
-        self.set_end(x, y)
+        goal = self.get_end_goal(old_end)
+        self.remove_end(old_end)
+        self.set_end(x, y, goal)
         self.add_point(x, y)
 
-    
-    def set_center(self, x, y):
-        self.center = (x,y)
+
+    def get_end_goal_distance(self, end, x, y):
+        goal = self.get_end_goal(end)
+        if goal is not None:
+            return self.shared_map.get_distance(goal[0], goal[1], x, y)
+        else:
+            return -1
 
 
     def get_center(self):
@@ -183,13 +194,14 @@ class Split:
         # the option choice guarantees that each end only has one neighbor in the same split
         previous_end = self.get_neighbor(x, y)
         self.shared_map.remove_coordinate_value(x, y, self.value)
-        self.remove_end(x, y)
-        self.set_end(previous_end[0], previous_end[1])
+        goal = self.get_end_goal((x,y))
+        self.remove_end((x, y))
+        self.set_end(previous_end[0], previous_end[1], goal)
         self.option_blacklist.add((x,y))
 
 
 class TectonicSplits:
-    def __init__(self, dimensions, line_bias=0.6):
+    def __init__(self, dimensions, line_bias=0.7):
         self.dimensions = dimensions
         self.line_bias = line_bias
         self.split_map = SplitMap(dimensions)
@@ -197,27 +209,42 @@ class TectonicSplits:
         self.splits = []
     
 
-    def initialize_split(self, center):
+    def initialize_split(self, base, min_goal_distance, max_attempts):
         new_split = Split(self.split_map, self.split_id)
-        new_split.add_point(center[0], center[1])
-        new_split.set_end(center[0], center[1])
-        new_split.set_center(center[0], center[1])
-        first_neighbor = random.choice(self.split_map.get_adjacent_coordinates_within_dimensions(center[0], center[1]))
-        new_split.extend_at_end(center, first_neighbor[0], first_neighbor[1])
+        goals = self.pick_end_goals(min_goal_distance, max_attempts)
+        new_split.add_point(base[0], base[1])
+        new_split.set_end(base[0], base[1], goals[0])
+        first_neighbor = random.choice(self.split_map.get_adjacent_coordinates_within_dimensions(base[0], base[1]))
+        new_split.add_point(first_neighbor[0], first_neighbor[1])
+        new_split.set_end(first_neighbor[0], first_neighbor[1], goals[1])
         self.splits.append(new_split)
         self.split_id += 1
     
 
-    def add_initial_split(self, min_distance, max_attempts=100):
+    def pick_end_goals(self, min_goal_distance, max_attempts):
+        boundaries = [(self.dimensions[0][0], y) for y in range(self.dimensions[1][0], self.dimensions[1][1]-1)]
+        boundaries += [(self.dimensions[0][1]-1, y) for y in range(self.dimensions[1][0], self.dimensions[1][1]-1)]
+        boundaries += [(x, self.dimensions[1][0]) for x in range(self.dimensions[0][0], self.dimensions[0][1]-1)]
+        boundaries += [(x, self.dimensions[1][1]-1) for x in range(self.dimensions[0][0], self.dimensions[0][1]-1)]
+        first_goal = random.choice(boundaries)
+        for attempt in range(max_attempts):
+            second_goal = random.choice(boundaries)
+            if self.split_map.get_distance(first_goal[0], first_goal[1], second_goal[0], second_goal[1]) >= min_goal_distance:
+                return (first_goal, second_goal)
+        return (first_goal, random.choice(boundaries))
+
+
+
+    def add_initial_split(self, min_split_distance, min_goal_distance, max_attempts=100):
         for attempt in range(max_attempts):
             rejected = False
             new_center = (random.randint(self.dimensions[0][0], self.dimensions[0][1]-1), random.randint(self.dimensions[1][0], self.dimensions[1][1]-1))
             for s in self.splits:
-                if s.get_center_distance(new_center[0], new_center[1]) < min_distance:
+                if s.get_center_distance(new_center[0], new_center[1]) < min_split_distance:
                     rejected = True
                     break
             if not rejected:
-                self.initialize_split(new_center)
+                self.initialize_split(new_center, min_goal_distance, max_attempts)
                 break
     
 
@@ -238,7 +265,10 @@ class TectonicSplits:
         split.extend_at_end(chosen_end, chosen_option[0], chosen_option[1])
         return 0
 
-
+    # TOOD: the current distance rule makes very boring diagonal splits most likely, while randomness create too jagged boundaries
+    # ideas to mitigate:
+    #   1) introduce invisible points that splits try to maintain distance to, leading to somewhat rounded shapes
+    #   2) each end gets a clear goal, which could be another split's end - be wary of both ends of one split having the same goal -> this creates lame 1-thick-plates
     def get_split_options(self, split, end):
         options = []
         for n in self.split_map.get_adjacent_coordinates_within_dimensions(end[0], end[1]):
@@ -256,8 +286,8 @@ class TectonicSplits:
         if options == []:
             split.backtrack_end(end[0], end[1])
             return -1
-        other_end = split.get_other_end(end)
-        options.sort(key=lambda x: split.shared_map.get_distance(x[0], x[1], other_end[0], other_end[1]), reverse=True)
+        #other_end = split.get_other_end(end)
+        options.sort(key=lambda x: split.get_end_goal_distance(end, x[0], x[1]))
         bias_options = options[0]
         bias_size = len(options[1:]) / (1 - self.line_bias) - len(options[1:])
         options += [bias_options] * int(bias_size)
@@ -265,7 +295,7 @@ class TectonicSplits:
 
 
 
-
+# TODO: double-check that this works with the new ObjectMap class
 class MagmaCurrentMap:
     # suction from subduction seems to be the strongest factor for plate movement, while magma currents explain the megacontinent-cycle
     def __init__(self, dimensions, base_surface:ObjectMap):
@@ -289,7 +319,7 @@ class MagmaCurrentMap:
     def update_surface_map(self, new_map:ObjectMap):
         self.surface_map = copy.deepcopy(new_map)
 
-
+# TODO: implement, duh
 class SurfaceMap:
     # types of plate boundaries:
     # - convergent (without subduction) -> fold mountains
