@@ -211,7 +211,7 @@ class TectonicSplits:
 
     def initialize_split(self, base, min_goal_distance, max_attempts):
         new_split = Split(self.split_map, self.split_id)
-        goals = self.pick_end_goals(min_goal_distance, max_attempts)
+        goals = self.generate_end_goals(min_goal_distance, max_attempts)
         new_split.add_point(base[0], base[1])
         new_split.set_end(base[0], base[1], goals[0])
         first_neighbor = random.choice(self.split_map.get_adjacent_coordinates_within_dimensions(base[0], base[1]))
@@ -221,17 +221,19 @@ class TectonicSplits:
         self.split_id += 1
     
 
-    def pick_end_goals(self, min_goal_distance, max_attempts):
-        boundaries = [(self.dimensions[0][0], y) for y in range(self.dimensions[1][0], self.dimensions[1][1]-1)]
-        boundaries += [(self.dimensions[0][1]-1, y) for y in range(self.dimensions[1][0], self.dimensions[1][1]-1)]
-        boundaries += [(x, self.dimensions[1][0]) for x in range(self.dimensions[0][0], self.dimensions[0][1]-1)]
-        boundaries += [(x, self.dimensions[1][1]-1) for x in range(self.dimensions[0][0], self.dimensions[0][1]-1)]
-        first_goal = random.choice(boundaries)
-        for attempt in range(max_attempts):
-            second_goal = random.choice(boundaries)
-            if self.split_map.get_distance(first_goal[0], first_goal[1], second_goal[0], second_goal[1]) >= min_goal_distance:
-                return (first_goal, second_goal)
-        return (first_goal, random.choice(boundaries))
+    def generate_end_goals(self, min_goal_distance, max_attempts):
+        for i in range(max_attempts):
+            # this ensures that goals are not on the same axis, which makes one-thick-plates less likely to occur
+            options = [
+                        (self.dimensions[0][0], random.randint(self.dimensions[1][0], self.dimensions[1][1]-1)),
+                        (self.dimensions[0][1]-1, random.randint(self.dimensions[1][0], self.dimensions[1][1]-1)),
+                        (random.randint(self.dimensions[0][0], self.dimensions[0][1]-1), self.dimensions[1][0]),
+                        (random.randint(self.dimensions[0][0], self.dimensions[0][1]-1), self.dimensions[1][1]-1)
+                    ]
+            goals = random.sample(options, k=2)
+            if self.split_map.get_distance(goals[0][0], goals[0][1], goals[1][0], goals[1][1]) >= min_goal_distance:
+                return goals
+        return goals
 
 
 

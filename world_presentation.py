@@ -18,7 +18,9 @@ def print_splitmap_ascii(split_map):
 dimensions = ((0, 100),(0, 100))
 
 w = World(dimensions)
-w.prepare_tectonics(20, 30, 120)
+w.prepare_tectonics(20, 20, 120)
+#for split in w.tectonic_splits.splits:
+#    print(split.ends)
 
 print_splitmap_ascii(w.tectonic_splits.split_map)
 finished = 0
