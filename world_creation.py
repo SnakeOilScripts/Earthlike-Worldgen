@@ -170,20 +170,43 @@ class Split:
         return [end for end in self.ends if not self.end_inactive(end)]
 
 
-    def get_end_direction(self, end):
-        neighbor = self.get_neighbor(end[0], end[1])
-        vector = (end[0] - neighbor[0], end[1] - neighbor[1])
-        return vector
+    def get_end_neighbor(self, x, y):
+        for n in self.shared_map.get_adjacent_coordinates_within_dimensions(x, y):
+            if self.value in self.shared_map.get_coordinate_value(n[0], n[1]):
+                return n
+
+
+    def get_nth_end_neighbor(self, end, n):
+        known_neighbors = set()
+        neighbor = end
+        for i in range(n):
+            known_neighbors.add(neighbor)
+            candidates = self.shared_map.get_adjacent_neighbors_of_value(neighbor[0], neighbor[1], self.value)
+            for candidate in candidates:
+                if candidate not in known_neighbors:
+                    neighbor = candidate
+        return neighbor
+
+
+    def get_end_direction(self, end, n):
+        nth_neighbor = self.get_nth_end_neighbor(end, n)
+        vector = (end[0]-nth_neighbor[0], end[1]-nth_neighbor[1])
+
+    
+    # assuming there exists a vector between the end and its nth neighbor, for (x,y) calculate the angle between nth-neighbir->end and nth-neighbor->(x,y)
+    def angle_towards_nth_end_neighbor(self, end, n, x, y):
+        nth_neighbor = self.get_nth_end_neighbor(end, n)
+        end_vector = (end[0]-nth_neighbor[0], end[1]-nth_neighbor[1])
+        angled_vector = (x-nth_neighbor[0], y-nth_neighbor[1])
+        l_end_vector = self.shared_map.get_distance(0,0,end_vector[0],end_vector[1])
+        l_angled_vector = self.shared_map.get_distance(0,0,angled_vector[0],angled_vector[1])
+        dot_product = end_vector[0]*angled_vector[0] + end_vector[1]*angled_vector[1]
+        angle = math.acos((dot_product) / (l_end_vector * l_angled_vector))
+        return angle
 
 
     def is_active(self):
         return len(self.get_active_ends()) > 0
-
-
-    def get_neighbor(self, x, y):
-        for n in self.shared_map.get_adjacent_coordinates_within_dimensions(x, y):
-            if self.value in self.shared_map.get_coordinate_value(n[0], n[1]):
-                return n
 
 
     def get_other_end(self, end):
@@ -198,7 +221,7 @@ class Split:
 
     def backtrack_end(self, x, y):
         # the option choice guarantees that each end only has one neighbor in the same split
-        previous_end = self.get_neighbor(x, y)
+        previous_end = self.get_end_neighbor(x, y)
         self.shared_map.remove_coordinate_value(x, y, self.value)
         goal = self.get_end_goal((x,y))
         self.remove_end((x, y))
@@ -207,9 +230,10 @@ class Split:
 
 
 class TectonicSplits:
-    def __init__(self, dimensions, line_bias=0.7):
+    def __init__(self, dimensions, direction_change_rate=0.3, direction_calc_n=5):
         self.dimensions = dimensions
-        self.line_bias = line_bias
+        self.direction_change_rate = direction_change_rate
+        self.direction_calc_n = direction_calc_n
         self.split_map = SplitMap(dimensions)
         self.split_id = 0
         self.splits = []
@@ -266,7 +290,7 @@ class TectonicSplits:
             return 1
         split = random.choice(active_splits)
         chosen_end = random.choice(split.get_active_ends())
-        options = self.get_split_options(split, chosen_end) # options are artificially padded to fit the line_bias
+        options = self.get_split_options(split, chosen_end) # options are artificially padded to fit the direction_change_rate
         if options == -1:
             return 0
         chosen_option = random.choice(options)
@@ -291,18 +315,12 @@ class TectonicSplits:
         if options == []:
             split.backtrack_end(end[0], end[1])
             return -1
-        #other_end = split.get_other_end(end)
-        #options.sort(key=lambda x: split.get_end_goal_distance(end, x[0], x[1]))
-        end_direction = split.get_end_direction(end)
-        for option in options:
-            if option == (end[0]+end_direction[0], end[1]+end_direction[1]):
-                bias_option = option
-                bias_size = len(options[1:]) / (1 - self.line_bias) - len(options[1:])
-                options += [bias_option] * int(bias_size)
-                break
-        #bias_option = options[0]
-        #bias_size = len(options[1:]) / (1 - self.line_bias) - len(options[1:])
-        #options += [bias_option] * int(bias_size)
+        options.sort(key=lambda x: split.angle_towards_nth_end_neighbor(end, self.direction_calc_n, x[0], x[1]))
+        bias_option = options[0]
+        direction_change_options = options[1:]
+        if len(direction_change_options) > 0:
+            option_length = int(len(direction_change_options) / self.direction_change_rate)
+            options = direction_change_options + [bias_option] * (option_length - len(direction_change_options))
         return options
 
 
