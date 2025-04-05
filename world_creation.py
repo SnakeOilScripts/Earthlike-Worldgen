@@ -170,6 +170,12 @@ class Split:
         return [end for end in self.ends if not self.end_inactive(end)]
 
 
+    def get_end_direction(self, end):
+        neighbor = self.get_neighbor(end[0], end[1])
+        vector = (end[0] - neighbor[0], end[1] - neighbor[1])
+        return vector
+
+
     def is_active(self):
         return len(self.get_active_ends()) > 0
 
@@ -267,10 +273,7 @@ class TectonicSplits:
         split.extend_at_end(chosen_end, chosen_option[0], chosen_option[1])
         return 0
 
-    # TOOD: the current distance rule makes very boring diagonal splits most likely, while randomness create too jagged boundaries
-    # ideas to mitigate:
-    #   1) introduce invisible points that splits try to maintain distance to, leading to somewhat rounded shapes
-    #   2) each end gets a clear goal, which could be another split's end - be wary of both ends of one split having the same goal -> this creates lame 1-thick-plates
+
     def get_split_options(self, split, end):
         options = []
         for n in self.split_map.get_adjacent_coordinates_within_dimensions(end[0], end[1]):
@@ -289,10 +292,17 @@ class TectonicSplits:
             split.backtrack_end(end[0], end[1])
             return -1
         #other_end = split.get_other_end(end)
-        options.sort(key=lambda x: split.get_end_goal_distance(end, x[0], x[1]))
-        bias_options = options[0]
-        bias_size = len(options[1:]) / (1 - self.line_bias) - len(options[1:])
-        options += [bias_options] * int(bias_size)
+        #options.sort(key=lambda x: split.get_end_goal_distance(end, x[0], x[1]))
+        end_direction = split.get_end_direction(end)
+        for option in options:
+            if option == (end[0]+end_direction[0], end[1]+end_direction[1]):
+                bias_option = option
+                bias_size = len(options[1:]) / (1 - self.line_bias) - len(options[1:])
+                options += [bias_option] * int(bias_size)
+                break
+        #bias_option = options[0]
+        #bias_size = len(options[1:]) / (1 - self.line_bias) - len(options[1:])
+        #options += [bias_option] * int(bias_size)
         return options
 
 
