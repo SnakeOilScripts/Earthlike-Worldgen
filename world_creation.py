@@ -201,7 +201,7 @@ class Split:
         l_end_vector = self.shared_map.get_distance(0,0,end_vector[0],end_vector[1])
         l_angled_vector = self.shared_map.get_distance(0,0,angled_vector[0],angled_vector[1])
         dot_product = end_vector[0]*angled_vector[0] + end_vector[1]*angled_vector[1]
-        angle = math.acos((dot_product) / (l_end_vector * l_angled_vector))
+        angle = math.acos(round((dot_product) / (l_end_vector * l_angled_vector), 2))
         return angle
 
 
@@ -230,7 +230,7 @@ class Split:
 
 
 class TectonicSplits:
-    def __init__(self, dimensions, direction_change_rate=0.3, direction_calc_n=5):
+    def __init__(self, dimensions, direction_change_rate=0.3, direction_calc_n=8):
         self.dimensions = dimensions
         self.direction_change_rate = direction_change_rate
         self.direction_calc_n = direction_calc_n
