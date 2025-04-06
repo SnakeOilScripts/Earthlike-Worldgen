@@ -25,10 +25,10 @@ class World:
         self.dimensions = dimensions
     
 
-    def prepare_tectonics(self, n_splits, min_split_distance, min_goal_distance):
+    def prepare_tectonics(self, n_splits, min_split_distance):
         self.tectonic_splits = TectonicSplits(self.dimensions)
         for i in range(n_splits):
-            self.tectonic_splits.add_initial_split(min_split_distance, min_goal_distance)
+            self.tectonic_splits.add_initial_split(min_split_distance)
 
 
 class ObjectMap:
@@ -53,8 +53,16 @@ class ObjectMap:
         return [(x-1,y-1),(x-1,y),(x-1,y+1),(x,y-1),(x,y+1),(x+1,y-1),(x+1,y),(x+1,y+1)]
 
 
+    def get_adjacent_nondiagonal_coordinates(self, x, y):
+        return [c for c in self.get_adjacent_coordinates(x,y) if c[0] == x or c[1] == y]
+
+
     def get_adjacent_coordinates_within_dimensions(self, x, y):
         return [c for c in self.get_adjacent_coordinates(x,y) if not self.coordinate_outside_dimensions(c[0], c[1])]
+
+    
+    def get_adjacent_nondiagonal_coordinates_within_dimensions(self, x, y):
+        return [c for c in self.get_adjacent_nondiagonal_coordinates(x,y) if not self.coordinate_outside_dimensions(c[0], c[1])]
     
 
     def get_coordinate_value(self, x, y):
@@ -65,7 +73,7 @@ class ObjectMap:
         return math.sqrt(math.pow(x1-x2,2) + math.pow(y1-y2,2))
 
 
-class SplitMap(ObjectMap):
+class SetMap(ObjectMap):
     def __init__(self, dimensions):
         super().__init__(dimensions, set())
 
@@ -99,9 +107,9 @@ class VectorMap(ObjectMap):
     def set_coordinate_value(self, x, y, value):
         self.coordinates[x,y] = value
 
-
+# TODO: move ends back to set instead of dict
 class Split:
-    def __init__(self, shared_map:SplitMap, value):
+    def __init__(self, shared_map:SetMap, value):
         self.shared_map = shared_map
         self.value = value
         self.option_blacklist = set()
@@ -230,18 +238,18 @@ class Split:
 
 
 class TectonicSplits:
-    def __init__(self, dimensions, direction_change_rate=0.3, direction_calc_n=8):
+    def __init__(self, dimensions, direction_change_rate=0.25, direction_calc_n=8):
         self.dimensions = dimensions
         self.direction_change_rate = direction_change_rate
         self.direction_calc_n = direction_calc_n
-        self.split_map = SplitMap(dimensions)
+        self.split_map = SetMap(dimensions)
         self.split_id = 0
         self.splits = []
     
 
-    def initialize_split(self, base, min_goal_distance, max_attempts):
+    def initialize_split(self, base, max_attempts):
         new_split = Split(self.split_map, self.split_id)
-        goals = self.generate_end_goals(min_goal_distance, max_attempts)
+        goals = self.generate_end_goals(0, 0)
         new_split.add_point(base[0], base[1])
         new_split.set_end(base[0], base[1], goals[0])
         first_neighbor = random.choice(self.split_map.get_adjacent_coordinates_within_dimensions(base[0], base[1]))
@@ -263,11 +271,10 @@ class TectonicSplits:
             goals = random.sample(options, k=2)
             if self.split_map.get_distance(goals[0][0], goals[0][1], goals[1][0], goals[1][1]) >= min_goal_distance:
                 return goals
-        return goals
+        return [0,0]
 
 
-
-    def add_initial_split(self, min_split_distance, min_goal_distance, max_attempts=100):
+    def add_initial_split(self, min_split_distance, max_attempts=100):
         for attempt in range(max_attempts):
             rejected = False
             new_center = (random.randint(self.dimensions[0][0], self.dimensions[0][1]-1), random.randint(self.dimensions[1][0], self.dimensions[1][1]-1))
@@ -276,7 +283,7 @@ class TectonicSplits:
                     rejected = True
                     break
             if not rejected:
-                self.initialize_split(new_center, min_goal_distance, max_attempts)
+                self.initialize_split(new_center, max_attempts)
                 break
     
 
@@ -322,6 +329,38 @@ class TectonicSplits:
             option_length = int(len(direction_change_options) / self.direction_change_rate)
             options = direction_change_options + [bias_option] * (option_length - len(direction_change_options))
         return options
+
+
+class TectonicPlates:
+    
+    def __init__(self, dimensions):
+        self.dimensions = dimensions
+        self.plate_map = SetMap(dimensions)
+        self.plate_id = 0
+    
+
+    def generate_from_splits(self, split_map:SetMap):
+        for y in range(self.dimensions[1][0], self.dimensions[1][1]):
+            for x in range(self.dimensions[0][0], self.dimensions[0][1]):
+                if len(self.plate_map.get_coordinate_value(x,y)) == 0:
+                    self.spread_value_within_boundary(split_map, self.plate_id, x, y)
+                    self.plate_id += 1
+
+
+    
+    def spread_value_within_boundary(self, split_map:SetMap, value, x, y):
+        # x,y is the first point where the spreading starts
+        next_round = {(x,y)}
+        while len(next_round) > 0:
+            neighbors = set()
+            for c in next_round:
+                self.plate_map.add_coordinate_value(c[0], c[1], value)
+                spreadable_neighbors = [n for n in self.plate_map.get_adjacent_nondiagonal_coordinates_within_dimensions(c[0], c[1])
+                                            if len(split_map.get_coordinate_value(n[0],n[1])) == 0 and      # coordinate is not a split
+                                            len(self.plate_map.get_coordinate_value(n[0], n[1])) == 0    # coordinate is not already filled
+                                        ]
+                neighbors.update(spreadable_neighbors)
+            next_round = neighbors
 
 
 
