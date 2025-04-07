@@ -67,7 +67,7 @@ class ObjectMap:
 
     def get_coordinate_value(self, x, y):
         return self.coordinates[x,y]
-    
+
 
     def get_distance(self, x1, y1, x2, y2):
         return math.sqrt(math.pow(x1-x2,2) + math.pow(y1-y2,2))
@@ -80,6 +80,10 @@ class SetMap(ObjectMap):
 
     def add_coordinate_value(self, x, y, value):
         self.coordinates[x,y].add(value)
+    
+
+    def update_coordinate_value(self, x, y, values:set):
+        self.coordinates[x,y].update(values)
     
 
     def remove_coordinate_value(self, x, y, value):
@@ -342,10 +346,20 @@ class TectonicPlates:
     def generate_from_splits(self, split_map:SetMap):
         for y in range(self.dimensions[1][0], self.dimensions[1][1]):
             for x in range(self.dimensions[0][0], self.dimensions[0][1]):
+                if len(split_map.get_coordinate_value(x,y)) > 0:
+                    continue
                 if len(self.plate_map.get_coordinate_value(x,y)) == 0:
                     self.spread_value_within_boundary(split_map, self.plate_id, x, y)
                     self.plate_id += 1
+        self.fill_plate_boundaries()
 
+    #TODO: fix this
+    def fill_plate_boundaries(self):
+        for y in range(self.dimensions[1][0], self.dimensions[1][1]):
+            for x in range(self.dimensions[0][0], self.dimensions[0][1]):
+                if len(self.plate_map.get_coordinate_value(x,y)) == 0:
+                    self.plate_map.update_coordinate_value(x,y,self.get_all_neighbor_values(x,y))
+        return
 
     
     def spread_value_within_boundary(self, split_map:SetMap, value, x, y):
@@ -361,6 +375,13 @@ class TectonicPlates:
                                         ]
                 neighbors.update(spreadable_neighbors)
             next_round = neighbors
+    
+
+    def get_all_neighbor_values(self, x, y):
+        values = set()
+        for n in self.plate_map.get_adjacent_coordinates_within_dimensions(x, y):
+            values.update(self.plate_map.get_coordinate_value(n[0],n[1]))
+        return values
 
 
 
