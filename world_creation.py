@@ -19,17 +19,6 @@ random.seed()
 #           read up on this here: geologyin.com
 
 
-class World:
-
-    def __init__(self, dimensions):
-        self.dimensions = dimensions
-    
-
-    def prepare_tectonics(self, n_splits, min_split_distance):
-        self.tectonic_splits = TectonicSplits(self.dimensions)
-        for i in range(n_splits):
-            self.tectonic_splits.add_initial_split(min_split_distance)
-
 
 class ObjectMap:
 
@@ -71,6 +60,16 @@ class ObjectMap:
 
     def get_distance(self, x1, y1, x2, y2):
         return math.sqrt(math.pow(x1-x2,2) + math.pow(y1-y2,2))
+    
+
+    # for a point, assume it is a vector from (0,0) to x,y and calculate the angle between two such vectors
+    def base_vector_angle(self, x1, y1, x2, y2):
+        l1 = self.get_distance(0,0,x1,y1)
+        l2 = self.get_distance(0,0,x2,y2)
+        dot_product = x1*x2 + y1*y2
+        angle = math.acos(round((dot_product) / (l1 * l2), 2))
+        return angle
+
 
 
 class SetMap(ObjectMap):
@@ -110,6 +109,7 @@ class VectorMap(ObjectMap):
     
     def set_coordinate_value(self, x, y, value):
         self.coordinates[x,y] = value
+
 
 # TODO: move ends back to set instead of dict
 class Split:
@@ -210,11 +210,11 @@ class Split:
         nth_neighbor = self.get_nth_end_neighbor(end, n)
         end_vector = (end[0]-nth_neighbor[0], end[1]-nth_neighbor[1])
         angled_vector = (x-nth_neighbor[0], y-nth_neighbor[1])
-        l_end_vector = self.shared_map.get_distance(0,0,end_vector[0],end_vector[1])
-        l_angled_vector = self.shared_map.get_distance(0,0,angled_vector[0],angled_vector[1])
-        dot_product = end_vector[0]*angled_vector[0] + end_vector[1]*angled_vector[1]
-        angle = math.acos(round((dot_product) / (l_end_vector * l_angled_vector), 2))
-        return angle
+        #l_end_vector = self.shared_map.get_distance(0,0,end_vector[0],end_vector[1])
+        #l_angled_vector = self.shared_map.get_distance(0,0,angled_vector[0],angled_vector[1])
+        #dot_product = end_vector[0]*angled_vector[0] + end_vector[1]*angled_vector[1]
+        #angle = math.acos(round((dot_product) / (l_end_vector * l_angled_vector), 2))
+        return self.shared_map.base_vector_angle(end_vector[0], end_vector[1], angled_vector[0], angled_vector[1])
 
 
     def is_active(self):
@@ -353,7 +353,7 @@ class TectonicPlates:
                     self.plate_id += 1
         self.fill_plate_boundaries()
 
-    #TODO: fix this
+
     def fill_plate_boundaries(self):
         for y in range(self.dimensions[1][0], self.dimensions[1][1]):
             for x in range(self.dimensions[0][0], self.dimensions[0][1]):
@@ -382,22 +382,32 @@ class TectonicPlates:
         for n in self.plate_map.get_adjacent_coordinates_within_dimensions(x, y):
             values.update(self.plate_map.get_coordinate_value(n[0],n[1]))
         return values
+    
 
+    # the direction vector should have one coordinate of value 1 (either x or y), because angles will not work in this scenario
+    def get_plate_direction(self, plate_id:int, magma_vectors:VectorMap):
+        vectors = []
+        for x in range(self.dimensions[0][0], self.dimensions[0][1]):
+            for y in range(self.dimensions[1][0], self.dimensions[1][1]):
+                if plate_id in self.plate_map.get_coordinate_value(x,y):
+                    vectors.append(magma_vectors.get_coordinate_value(x,y))
+        sum_vector = (sum([v[0] for v in vectors]), sum([v[1] for v in vectors]))
+        return sum_vector
 
 
 # TODO: double-check that this works with the new ObjectMap class
 class MagmaCurrentMap:
     # suction from subduction seems to be the strongest factor for plate movement, while magma currents explain the megacontinent-cycle
     def __init__(self, dimensions, base_surface:ObjectMap):
-        self.surface_map = copy.deepcopy(base_surface)
-        super().__init__(dimensions)
+        self.surface_map = base_surface
+        self.dimensions = dimensions
 
 
     def generate_magma_current_vectors(self):
         vector_map = VectorMap(self.dimensions)
-        for x in range(self.dimensions[0][1] - self.dimensions[0][0]):
-            for y in range(self.dimensions[1][1] - self.dimensions[1][0]):
-                neighbors = self.get_adjacent_coordinates_within_dimensions(x, y)
+        for x in range(self.dimensions[0][0], self.dimensions[0][1]):
+            for y in range(self.dimensions[1][0], self.dimensions[1][1]):
+                neighbors = self.surface_map.get_adjacent_coordinates_within_dimensions(x, y)
                 neighbors.sort(key=lambda param: self.surface_map.get_coordinate_value(param[0],param[1]))
                 if self.surface_map.get_coordinate_value(neighbors[0][0], neighbors[0][1]) < self.surface_map.get_coordinate_value(x,y):
                     vector_map.set_coordinate_value(x, y, (neighbors[0][0] - x, neighbors[0][1] - y))
@@ -409,14 +419,79 @@ class MagmaCurrentMap:
     def update_surface_map(self, new_map:ObjectMap):
         self.surface_map = copy.deepcopy(new_map)
 
+
+class TectonicProduct:
+
+    def __init__(self, dimensions):
+        self.dimensions = dimensions
+
+    
+    def transfer_units(self, x, y, base_vector, angle):
+        pass
+
+
 # TODO: implement, duh
-class SurfaceMap:
+class Topography:
     # types of plate boundaries:
     # - convergent (without subduction) -> fold mountains
     # - convergent (with subduction) -> trench + mountains/volcanos
     # - divergent -> mid-ocean ridge / rift valleys, volcanism
     # - transform -> strike-slip-fault
+    # - volcanism
     # https://www.geologyin.com/2014/03/types-of-continental-boundaries.html
-    def apply_erosion(self):
+    def __init__(self):
         pass
     
+    def apply_general_erosion(self, erosion_factor):
+        pass
+
+    def transfer_units(self, x, y, base_vector, angle):
+        pass
+
+
+class Geology:
+
+    def __init__(self):
+        pass
+
+    def transfer_units()
+
+
+class TectonicMovements:
+
+    def __init__(self, magma_currents:MagmaCurrentMap, tectonic_plates:TectonicPlates, topography:Topography):
+        self.currents = magma_currents
+        self.plates = tectonic_plates
+        self.topography = topography
+        self.map_helper = ObjectMap(((0,1), (0,1)), 0)
+    
+    # to avoid the scenario of plates running away from each other (and the 3 or more intersecting plate issue), only one plate is moving at a time...
+    def simulate_plate_movement(self):
+        # pick a plate randomly:
+        plate_id = random.choice(list(range(self.plates.plate_id)))
+        vector_map = self.currents.generate_magma_current_vectors()
+        vector = self.plates.get_plate_direction(plate_id, vector_map)
+
+    
+    def standardize_direction_vector(self, vector):
+        if vector[0] < 0 and vector[1] >= 0:
+            return (-1,0), self.map_helper.base_vector_angle(-1,0, vector[0], vector[1])
+        elif vector[0] < 0 and vector[1] < 0:
+            return (0, -1), self.map_helper.base_vector_angle(0, -1, vector[0], vector[1])
+        elif vector[0] >= 0 and vector[1] >= 0:
+            return (0, 1), self.map_helper.base_vector_angle(0, 1, vector[0], vector[1])
+        elif vector[0] >= 0 and vector[1] < 0:
+            return (1, 0), self.map_helper.base_vector_angle(1, 0, vector[0], vector[1])
+
+
+
+class World:
+
+    def __init__(self, dimensions):
+        self.dimensions = dimensions
+    
+
+    def prepare_tectonics(self, n_splits, min_split_distance):
+        self.tectonic_splits = TectonicSplits(self.dimensions)
+        for i in range(n_splits):
+            self.tectonic_splits.add_initial_split(min_split_distance)

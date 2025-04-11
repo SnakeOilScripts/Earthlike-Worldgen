@@ -30,7 +30,7 @@ def print_coordinates_of_value(object_map, value):
 dimensions = ((0, 50),(0, 50))
 
 w = World(dimensions)
-w.prepare_tectonics(5, 10)
+w.prepare_tectonics(15, 10)
 #for split in w.tectonic_splits.splits:
 #    print(split.ends)
 
@@ -43,9 +43,10 @@ while finished == 0:
 print_splitmap_ascii(w.tectonic_splits.split_map)
 
 split_map = w.tectonic_splits.split_map
-
+"""
 plates = TectonicPlates(dimensions)
 plates.generate_from_splits(split_map)
 print_coordinates_of_value(plates.plate_map, {0})
 print_coordinates_of_value(plates.plate_map, {1})
 print_coordinates_of_value(plates.plate_map, {0,1})
+"""

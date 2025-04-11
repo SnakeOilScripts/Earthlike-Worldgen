@@ -1,13 +1,9 @@
 from world_creation import *
 
-dimensions = ((0,3),(0,3))
+dimensions = ((0,100),(0,100))
 
-plates = TectonicPlates(dimensions)
+m = ObjectMap(dimensions, 0)
 
-n = Points(dimensions)
-n.points = {(1,1):1}
+x_axis = (0, 1)
 
-c = plates.extract_cycle(n, (1,1))
-
-print(n.points)
-print(c.points)
+print(m.base_vector_angle(0, 1, 1, 1))
