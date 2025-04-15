@@ -34,6 +34,14 @@ class ObjectMap:
         self.coordinates = np.array(coordinates_list)
     
 
+    def get_all_coordinates(self):
+        coordinates = []
+        for x in range(self.dimensions[0][0], self.dimensions[0][1]):
+            for y in range(self.dimensions[1][0], self.dimensions[1][1]):
+                coordinates.append((x,y))
+        return coordinates
+
+
     def coordinate_outside_dimensions(self, x, y):
         return (x < self.dimensions[0][0] or x >= self.dimensions[0][1] or y < self.dimensions[1][0] or y >= self.dimensions[1][1])
 
@@ -393,6 +401,7 @@ class TectonicPlates:
                     vectors.append(magma_vectors.get_coordinate_value(x,y))
         sum_vector = (sum([v[0] for v in vectors]), sum([v[1] for v in vectors]))
         return sum_vector
+    
 
 
 # TODO: double-check that this works with the new ObjectMap class
@@ -454,7 +463,8 @@ class Geology:
     def __init__(self):
         pass
 
-    def transfer_units()
+    def transfer_units(self, x, y, base_vector, angle):
+        pass
 
 
 class TectonicMovements:
@@ -464,15 +474,23 @@ class TectonicMovements:
         self.plates = tectonic_plates
         self.topography = topography
         self.map_helper = ObjectMap(((0,1), (0,1)), 0)
-    
-    # to avoid the scenario of plates running away from each other (and the 3 or more intersecting plate issue), only one plate is moving at a time...
-    def simulate_plate_movement(self):
-        # pick a plate randomly:
-        plate_id = random.choice(list(range(self.plates.plate_id)))
-        vector_map = self.currents.generate_magma_current_vectors()
-        vector = self.plates.get_plate_direction(plate_id, vector_map)
+        self.generate_intersection_list()
 
-    
+
+    def generate_plate_coordinate_lists(self):
+        plate_coordinates = {}
+        for i in range(self.plates.plate_id):
+            plate_coordinates[i] = []
+            for coordinate in self.plates.plate_map.get_all_coordinates():
+                if i in self.plates.plate_map.get_coordinate_value(coordinate[0], coordinate[1]):
+                    plate_coordinates[i].append(coordinate)
+        self.plate_coordinates = plate_coordinates
+        
+
+    def get_plate_coordinates(self, plate_id):
+        return self.plate_coordinates[plate_id]
+
+
     def standardize_direction_vector(self, vector):
         if vector[0] < 0 and vector[1] >= 0:
             return (-1,0), self.map_helper.base_vector_angle(-1,0, vector[0], vector[1])
@@ -482,6 +500,21 @@ class TectonicMovements:
             return (0, 1), self.map_helper.base_vector_angle(0, 1, vector[0], vector[1])
         elif vector[0] >= 0 and vector[1] < 0:
             return (1, 0), self.map_helper.base_vector_angle(1, 0, vector[0], vector[1])
+
+
+    # to avoid the scenario of plates running away from each other (and the 3 or more intersecting plate issue), only one plate is moving at a time...
+    def simulate_plate_movement(self):
+        # pick a plate randomly:
+        plate_id = random.choice(list(range(self.plates.plate_id)))
+        vector_map = self.currents.generate_magma_current_vectors()
+        vector = self.plates.get_plate_direction(plate_id, vector_map)
+        standard_direction = self.standardize_direction_vector(vector)
+        
+        plate_coordinates = self.get_plate_coordinates(plate_id)
+        for coordinate in plate_coordinates:
+            # identify if any edge interaction applies
+            self.topography.transfer_units(coordinate[0], coordinate[1], standard_direction[0], standard_direction[1])
+            # transfer other units if necessary
 
 
 
