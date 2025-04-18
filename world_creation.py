@@ -63,6 +63,8 @@ class ObjectMap:
     
 
     def get_coordinate_value(self, x, y):
+        if self.coordinate_outside_dimensions(x, y):
+            return None
         return self.coordinates[x,y]
 
 
@@ -454,7 +456,7 @@ class Topography:
     def apply_general_erosion(self, erosion_factor):
         pass
 
-    def transfer_units(self, x, y, base_vector, angle):
+    def transfer_units(self, x1, y1, x2, y2, ratio, interaction):
         pass
 
 
@@ -492,6 +494,7 @@ class TectonicMovements:
 
 
     def standardize_direction_vector(self, vector):
+        # the angle is always clockwise moving away from the base_vector (-1, 0), (0,-1), (1,0), (0,1)
         if vector[0] < 0 and vector[1] >= 0:
             return (-1,0), self.map_helper.base_vector_angle(-1,0, vector[0], vector[1])
         elif vector[0] < 0 and vector[1] < 0:
@@ -502,7 +505,50 @@ class TectonicMovements:
             return (1, 0), self.map_helper.base_vector_angle(1, 0, vector[0], vector[1])
 
 
-    # to avoid the scenario of plates running away from each other (and the 3 or more intersecting plate issue), only one plate is moving at a time...
+    # by definition, we want either 1 or 2 neighbors and the "overlap ratio" of our angled vector with them
+    def neighbor_direction_ratio(self, x, y, base_vector, angle):
+        # from a base_vector moving clockwise, a middle and a far neighbor can be identified - whether the angle is above or below 45° determines which of the two
+        # are relevant for the direction_ratio to be returned
+        if base_vector == (-1, 0):
+            near = (-1+x, 0+y)
+            middle = (-1+x, 1+y)
+            far = (0+x, 1+y)
+        elif base_vector == (0, -1):
+            near = (0+x, -1+y)
+            middle = (-1+x, -1+y)
+            far = (-1+x, 0+y)
+        elif base_vector == (0, 1):
+            near = (0+x, 1+y)
+            middle = (1+x,1+y)
+            far = (1+x, 0+y)
+        elif base_vector == (1, 0):
+            near = (1+x, 0+y)
+            middle = (1+x, -1+y)
+            far = (0+x, -1+y)
+        if round(angle / (math.pi / 2), 2) == 0:
+            return {near:1.0}
+        elif round((math.pi/2 - angle) / (math.pi/2), 2) == 0:
+            return {far:1.0}
+        elif angle >= math.pi / 4:        # if angle is >= 45° or pi/4
+            neighbors = [middle, far]
+            return {
+                middle: round(1 - ((angle - math.pi/4) / (math.pi/4)), 2),
+                far: round(((angle - math.pi/4) / (math.pi/4)), 2)
+            }
+        elif angle < math.pi / 4:
+            neighbors = [near, middle]
+            return {
+                near: round(1 - (angle / (math.pi / 4)), 2),
+                middle: round((angle / (math.pi / 4)), 2)
+            }
+
+
+    def identify_edge_interaction(self, x, y, plate_id, base_vector, angle):
+        neighbor_directions = self.neighbor_direction_ratio(x, y, base_vector, angle)
+        main_neighbor = max(list(neighbor_directions.keys()), key=lambda x: neighbor_directions[x])
+        # differentiate between convergent, divergent and transform, each neighbor in neighbor_directions gets a mode
+
+    # to avoid the scenario of plates running away from each other (and the 3 or more intersecting plate issue), only one plate is moving at a time
     def simulate_plate_movement(self):
         # pick a plate randomly:
         plate_id = random.choice(list(range(self.plates.plate_id)))
@@ -513,7 +559,8 @@ class TectonicMovements:
         plate_coordinates = self.get_plate_coordinates(plate_id)
         for coordinate in plate_coordinates:
             # identify if any edge interaction applies
-            self.topography.transfer_units(coordinate[0], coordinate[1], standard_direction[0], standard_direction[1])
+            edge_interaction = self.identify_edge_interaction(coordinate[0], coordinate[1], plate_id)
+            self.topography.transfer_units(coordinate[0], coordinate[1], standard_direction[0], standard_direction[1], edge_interaction)
             # transfer other units if necessary
 
 
