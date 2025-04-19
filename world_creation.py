@@ -24,15 +24,20 @@ class ObjectMap:
 
     def __init__(self, dimensions, base_object):
         self.dimensions = dimensions
+        self.coordinates = self.create_coordinates(dimensions, base_object)
+        
+
+
+    def create_coordinates(self, dimensions, base_object):
         coordinates_list = []
         for y in range(dimensions[1][0], dimensions[1][1]):
             x_list = []
             for x in range(dimensions[0][0], dimensions[0][1]):
                 x_list.append(copy.deepcopy(base_object))
             coordinates_list.append(x_list)
-        #coordinates_list = [[copy.deepcopy(base_object)]*(dimensions[1][1] - dimensions[1][0])] * (dimensions[0][1] - dimensions[0][0])
-        self.coordinates = np.array(coordinates_list)
-    
+        coordinates = np.array(coordinates_list)
+        return coordinates
+
 
     def get_all_coordinates(self):
         coordinates = []
@@ -79,7 +84,32 @@ class ObjectMap:
         dot_product = x1*x2 + y1*y2
         angle = math.acos(round((dot_product) / (l1 * l2), 2))
         return angle
+    
 
+    def resize_vector(self, x, y, length):
+        return (x * (length / self.get_distance(0, 0, x, y)), y * (length / self.get_distance(0, 0, x, y)))
+
+
+class UpdateMap(ObjectMap):
+    
+    
+    def __init__(self, dimensions, base_object):
+        self.dimensions = dimensions
+        self.base_object = base_object
+        self.coordinates = self.create_coordinates(dimensions, base_object)
+        self.coordinates_update = self.create_coordinates(dimensions, base_object)
+
+    
+    def increment_coordinate_value(x, y, value):
+        if not self.coordinate_outside_dimensions(x, y):
+            self.coordinates_update[x,y] += value
+        else:
+            return -1
+
+
+    def apply_changes(self):
+        self.coordinates = self.coordinates_update
+        self.coordinates_update = self.create_coordinates(self.dimensions, self.base_object)
 
 
 class SetMap(ObjectMap):
@@ -431,15 +461,6 @@ class MagmaCurrentMap:
         self.surface_map = copy.deepcopy(new_map)
 
 
-class TectonicProduct:
-
-    def __init__(self, dimensions):
-        self.dimensions = dimensions
-
-    
-    def transfer_units(self, x, y, base_vector, angle):
-        pass
-
 
 # TODO: implement, duh
 class Topography:
@@ -450,14 +471,38 @@ class Topography:
     # - transform -> strike-slip-fault
     # - volcanism
     # https://www.geologyin.com/2014/03/types-of-continental-boundaries.html
-    def __init__(self):
-        pass
+    def __init__(self, dimensions, base_height=1.0):
+        self.dimensions = dimensions
+        self.topo_map = UpdateMap(self.dimensions, 0.0)
+        for coordinate in self.topo_map.get_all_coordinates():
+            self.topo_map.increment_coordinate_value(coordinate[0], coordinate[1], base_height)
+        self.topo_map.apply_changes()
+
     
     def apply_general_erosion(self, erosion_factor):
         pass
 
-    def transfer_units(self, x1, y1, x2, y2, ratio, interaction):
-        pass
+    def point_interaction(self, x1, y1, x2, y2, interaction, ratio):
+        # point_interaction must check if the coordinate is within dimensions because of how the interaction calculation works
+        # having the plate boundary occupying a coordinate breaks all systems I could come up with, here is the new plan:
+        #   - for a coordinate with more than one plate_id in it, it belongs to the plate of the lowest plate_id
+        #   - the ACTUAL plate boundary is a line of thickness 0 between two coordinates
+        if mode == 'transform':
+            pass
+        elif mode == 'divergent':
+            pass
+        elif mode == 'convergent':
+            pass
+        elif mode == 'transfer':
+            pass
+
+    
+    def get_height(self, x, y):
+        return self.topo_map.get_coordinate_value(x, y)
+
+
+    def apply_changes(self):
+        self.topo_map.apply_changes()
 
 
 class Geology:
@@ -465,7 +510,8 @@ class Geology:
     def __init__(self):
         pass
 
-    def transfer_units(self, x, y, base_vector, angle):
+    def point_interaction(self, x1, y1, x2, y2, interaction, ratio):
+        # point_interaction must check if the coordinate is within dimensions because of how the interaction calculation works
         pass
 
 
@@ -476,15 +522,21 @@ class TectonicMovements:
         self.plates = tectonic_plates
         self.topography = topography
         self.map_helper = ObjectMap(((0,1), (0,1)), 0)
+        self.subduction_ratio = 0.1
         self.generate_intersection_list()
 
 
+    # TODO: adjust this so that the boundaries no longer occupy coordinate points
+    # a boundary coordinate belongs to the plate of the lowest plate_id
+    # this can be achieved without changing the tectonic plate implementation by disregarding some coordinates in this method
+    # a bool is_adjacent_to_boundary must exist (basically does a coordinate neighbor another coordinate with two or more plate ids)
     def generate_plate_coordinate_lists(self):
         plate_coordinates = {}
         for i in range(self.plates.plate_id):
             plate_coordinates[i] = []
             for coordinate in self.plates.plate_map.get_all_coordinates():
-                if i in self.plates.plate_map.get_coordinate_value(coordinate[0], coordinate[1]):
+                if i == min(self.plates.plate_map.get_coordinate_value(coordinate[0], coordinate[1])):
+                    # the plate of lowest plate_id owns the coordinate
                     plate_coordinates[i].append(coordinate)
         self.plate_coordinates = plate_coordinates
         
@@ -493,60 +545,51 @@ class TectonicMovements:
         return self.plate_coordinates[plate_id]
 
 
-    def standardize_direction_vector(self, vector):
-        # the angle is always clockwise moving away from the base_vector (-1, 0), (0,-1), (1,0), (0,1)
-        if vector[0] < 0 and vector[1] >= 0:
-            return (-1,0), self.map_helper.base_vector_angle(-1,0, vector[0], vector[1])
-        elif vector[0] < 0 and vector[1] < 0:
-            return (0, -1), self.map_helper.base_vector_angle(0, -1, vector[0], vector[1])
-        elif vector[0] >= 0 and vector[1] >= 0:
-            return (0, 1), self.map_helper.base_vector_angle(0, 1, vector[0], vector[1])
-        elif vector[0] >= 0 and vector[1] < 0:
-            return (1, 0), self.map_helper.base_vector_angle(1, 0, vector[0], vector[1])
+    def get_neighbor_interactions(self, x, y, vector):
+        # takes the normal movement vector of a plate, sets it to length 1, applies it to (x,y) and then picks all neighbors with distance less than 1
+        # out of these neighbors, 1 - percentage_of_sum_distance is the percentage of units moved to that neighbor
+        # down the line, each of these neighbors gets an identification of boundary interaction / movement
+        resized_vector = self.map_helper.resize_vector(vector[0], vector[1], 1)
+        goal_point = (x+resized_vector[0], y+resized_vector[1])
+        available_neighbors = [n for n in self.map_helper.get_adjacent_coordinates(round(goal_point[0]), round(goal_point[1]))
+                                if self.map_helper.get_distance(goal_point[0], goal_point[1], n[0], n[1]) < 1]
+        sum_distance = sum([self.map_helper.get_distance(goal_point[0], goal_point[1], n[0], n[1]) for n in available_neighbors])
+        neighbor_movements = {n:(1 - (self.map_helper.get_distance(goal_point[0], goal_point[1], n[0], n[1])/sum_distance)) for n in available_neighbors}
+        return neighbor_movements
 
 
-    # by definition, we want either 1 or 2 neighbors and the "overlap ratio" of our angled vector with them
-    def neighbor_direction_ratio(self, x, y, base_vector, angle):
-        # from a base_vector moving clockwise, a middle and a far neighbor can be identified - whether the angle is above or below 45° determines which of the two
-        # are relevant for the direction_ratio to be returned
-        if base_vector == (-1, 0):
-            near = (-1+x, 0+y)
-            middle = (-1+x, 1+y)
-            far = (0+x, 1+y)
-        elif base_vector == (0, -1):
-            near = (0+x, -1+y)
-            middle = (-1+x, -1+y)
-            far = (-1+x, 0+y)
-        elif base_vector == (0, 1):
-            near = (0+x, 1+y)
-            middle = (1+x,1+y)
-            far = (1+x, 0+y)
-        elif base_vector == (1, 0):
-            near = (1+x, 0+y)
-            middle = (1+x, -1+y)
-            far = (0+x, -1+y)
-        if round(angle / (math.pi / 2), 2) == 0:
-            return {near:1.0}
-        elif round((math.pi/2 - angle) / (math.pi/2), 2) == 0:
-            return {far:1.0}
-        elif angle >= math.pi / 4:        # if angle is >= 45° or pi/4
-            neighbors = [middle, far]
-            return {
-                middle: round(1 - ((angle - math.pi/4) / (math.pi/4)), 2),
-                far: round(((angle - math.pi/4) / (math.pi/4)), 2)
-            }
-        elif angle < math.pi / 4:
-            neighbors = [near, middle]
-            return {
-                near: round(1 - (angle / (math.pi / 4)), 2),
-                middle: round((angle / (math.pi / 4)), 2)
-            }
+    def is_boundary(self, x, y):
+        # returns True either if plates contains two or more values OR if any neighbor checks that box, BECAUSE boundaries no longer occupy a point,
+        # and only one plate can own the point with two or more plate_ids
+        return any([len(self.plates.get_coordinate_value(c[0], c[1])) >= 2 for c in [(x,y)] + self.plates.get_adjacent_coordinates_within_dimensions(x,y)])
 
 
-    def identify_edge_interaction(self, x, y, plate_id, base_vector, angle):
-        neighbor_directions = self.neighbor_direction_ratio(x, y, base_vector, angle)
-        main_neighbor = max(list(neighbor_directions.keys()), key=lambda x: neighbor_directions[x])
-        # differentiate between convergent, divergent and transform, each neighbor in neighbor_directions gets a mode
+    def identify_interaction(self, x1, y1, x2, y2, plate_id):
+        origin_coordinate = self.plates.get_coordinate_value(x1, y1)
+        destination_coordinate = self.plates.get_coordinate_value(x2, y2)
+        if len(origin_coordinate) >= 2 and  len(destination_coordinate) >= 2:
+            # source and destination are plate boundaries -> transform interaction
+            return 'transform'
+        elif len(origin_coordinate) >= 2 and destination_coordinate == {plate_id}:
+            # source is a plate boundary and destination belongs to the plate in question -> divergent
+            return 'divergent'
+        elif len(origin_coordinate) >= 2:
+            # if the origin is a plate boundary and the destination is not of a the same plate, it must be convergent, as transform is already covered
+            return 'convergent'
+        else:
+            # all other modes must be plate interior to plate interior / boundary, which is treated the same in the model
+            return 'transfer'
+
+    
+    def point_interaction(self, x1, y1, x2, y2, interaction_type, ratio):
+        self.topography.point_interaction(x1, y1, x2, y2, interaction_type, ratio)
+        # perform other interactions if necessary
+
+
+    def apply_changes(self):
+        self.topography.apply_changes()
+        # perform this operation in other objects if needed
+
 
     # to avoid the scenario of plates running away from each other (and the 3 or more intersecting plate issue), only one plate is moving at a time
     def simulate_plate_movement(self):
@@ -558,11 +601,12 @@ class TectonicMovements:
         
         plate_coordinates = self.get_plate_coordinates(plate_id)
         for coordinate in plate_coordinates:
-            # identify if any edge interaction applies
-            edge_interaction = self.identify_edge_interaction(coordinate[0], coordinate[1], plate_id)
-            self.topography.transfer_units(coordinate[0], coordinate[1], standard_direction[0], standard_direction[1], edge_interaction)
-            # transfer other units if necessary
-
+            # get all neighbors where units are moved to
+            interactions = self.get_neighbor_interactions(coordinate[0], coordinate[1], vector)
+            for interaction_point in interactions:
+                interaction_type = self.identify_interaction(coordinate[0], coordinate[1], interaction_point[0], interaction_point[1], plate_id)
+                self.point_interaction(coordinate[0], coordinate[1], interaction_point[0], interaction_point[1], interaction_type, interactions[interaction_point])
+        self.apply_changes()
 
 
 class World:
