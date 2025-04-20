@@ -87,6 +87,8 @@ class ObjectMap:
     
 
     def resize_vector(self, x, y, length):
+        if self.get_distance(0,0,x,y) == 0:
+            return (0,0)
         return (x * (length / self.get_distance(0, 0, x, y)), y * (length / self.get_distance(0, 0, x, y)))
 
 
@@ -100,7 +102,7 @@ class UpdateMap(ObjectMap):
         self.coordinates_update = np.copy(self.coordinates)
 
     
-    def increment_coordinate_value(x, y, value):
+    def increment_coordinate_value(self, x, y, value):
         if not self.coordinate_outside_dimensions(x, y):
             self.coordinates_update[x,y] += value
         else:
@@ -164,8 +166,8 @@ class Split:
         self.shared_map.add_coordinate_value(x, y, self.value)
     
 
-    def set_end(self, x, y, goal):
-        self.ends[(x,y)] = goal
+    def set_end(self, x, y):
+        self.ends[(x,y)] = 1
     
 
     def get_end_goal(self, end):
@@ -184,9 +186,8 @@ class Split:
 
 
     def extend_at_end(self, old_end, x, y):
-        goal = self.get_end_goal(old_end)
         self.remove_end(old_end)
-        self.set_end(x, y, goal)
+        self.set_end(x, y)
         self.add_point(x, y)
 
 
@@ -293,30 +294,14 @@ class TectonicSplits:
 
     def initialize_split(self, base, max_attempts):
         new_split = Split(self.split_map, self.split_id)
-        goals = self.generate_end_goals(0, 0)
         new_split.add_point(base[0], base[1])
-        new_split.set_end(base[0], base[1], goals[0])
+        new_split.set_end(base[0], base[1])
         first_neighbor = random.choice(self.split_map.get_adjacent_coordinates_within_dimensions(base[0], base[1]))
         new_split.add_point(first_neighbor[0], first_neighbor[1])
-        new_split.set_end(first_neighbor[0], first_neighbor[1], goals[1])
+        new_split.set_end(first_neighbor[0], first_neighbor[1])
         self.splits.append(new_split)
         self.split_id += 1
     
-
-    def generate_end_goals(self, min_goal_distance, max_attempts):
-        for i in range(max_attempts):
-            # this ensures that goals are not on the same axis, which makes one-thick-plates less likely to occur
-            options = [
-                        (self.dimensions[0][0], random.randint(self.dimensions[1][0], self.dimensions[1][1]-1)),
-                        (self.dimensions[0][1]-1, random.randint(self.dimensions[1][0], self.dimensions[1][1]-1)),
-                        (random.randint(self.dimensions[0][0], self.dimensions[0][1]-1), self.dimensions[1][0]),
-                        (random.randint(self.dimensions[0][0], self.dimensions[0][1]-1), self.dimensions[1][1]-1)
-                    ]
-            goals = random.sample(options, k=2)
-            if self.split_map.get_distance(goals[0][0], goals[0][1], goals[1][0], goals[1][1]) >= min_goal_distance:
-                return goals
-        return [0,0]
-
 
     def add_initial_split(self, min_split_distance, max_attempts=100):
         for attempt in range(max_attempts):
@@ -431,8 +416,12 @@ class TectonicPlates:
             for y in range(self.dimensions[1][0], self.dimensions[1][1]):
                 if plate_id in self.plate_map.get_coordinate_value(x,y):
                     vectors.append(magma_vectors.get_coordinate_value(x,y))
-        sum_vector = (sum([v[0] for v in vectors]), sum([v[1] for v in vectors]))
+        sum_vector = (int(sum([v[0] for v in vectors])), int(sum([v[1] for v in vectors])))
         return sum_vector
+    
+
+    def get_coordinate_value(self, x, y):
+        return self.plate_map.get_coordinate_value(x,y)
     
 
 
@@ -471,9 +460,10 @@ class Topography:
     # - transform -> strike-slip-fault
     # - volcanism
     # https://www.geologyin.com/2014/03/types-of-continental-boundaries.html
-    def __init__(self, dimensions, base_height=100.0):
+    def __init__(self, dimensions, base_height=100.0, volcanism_chance=0.01):
         self.dimensions = dimensions
         self.base_height = base_height
+        self.volcanism_chance = volcanism_chance
         self.topo_map = UpdateMap(self.dimensions, 0.0)
         for coordinate in self.topo_map.get_all_coordinates():
             self.topo_map.increment_coordinate_value(coordinate[0], coordinate[1], self.base_height)
@@ -483,7 +473,13 @@ class Topography:
     def apply_general_erosion(self, erosion_ratio):
         pass
 
-    def point_interaction(self, x1, y1, x2, y2, interaction, ratio):
+
+    def apply_volcanism(self, x, y):
+        if random.random() <= self.volcanism_chance:
+            self.topo_map.increment_coordinate_value(x, y, self.base_height)
+
+
+    def point_interaction(self, x1, y1, x2, y2, mode, ratio):
         # point_interaction must check if the coordinate is within dimensions because of how the interaction calculation works
         # having the plate boundary occupying a coordinate breaks all systems I could come up with, here is the new plan:
         #   - for a coordinate with more than one plate_id in it, it belongs to the plate of the lowest plate_id
@@ -499,6 +495,8 @@ class Topography:
             self.topo_map.increment_coordinate_value(x1, y1, (-1)*transfer_unit)
             self.topo_map.increment_coordinate_value(x2, y2, transfer_unit)
             self.topo_map.increment_coordinate_value(x1, y1, self.base_height * ratio)
+            # the thin replacement plate at the edge has a high volcanism risk
+            self.apply_volcanism(x1, y1)
         elif mode == 'convergent':
             # the convergent coordinate will receive units from behind
             # give back fold_ratio * transfer_unit back to where it would come from
@@ -510,6 +508,8 @@ class Topography:
             subduction_ratio = 0.5
             self.topo_map.increment_coordinate_value(x1, y1, (-1 - subduction_ratio) * transfer_unit)   # create trenches by creating less than 0 values
             self.topo_map.increment_coordinate_value(x2, y2, transfer_unit * subduction_ratio)
+            # the mountain range that is raised by subduction has a high volcanism risk
+            self.apply_volcanism(x2, y2)
         return
 
     
@@ -539,7 +539,7 @@ class TectonicMovements:
         self.topography = topography
         self.map_helper = ObjectMap(((0,1), (0,1)), 0)
         self.subduction_ratio = 0.1
-        self.generate_intersection_list()
+        self.generate_plate_coordinate_lists()
 
 
     # TODO: adjust this so that the boundaries no longer occupy coordinate points
@@ -578,13 +578,16 @@ class TectonicMovements:
         # returns True either if plates contains two or more values OR if any neighbor checks that box, BECAUSE boundaries no longer occupy a point,
         # and only one plate can own the point with two or more plate_ids
         owner_id = min(self.plates.get_coordinate_value(x,y))
-        return any([owner_id != min(self.plates.get_coordinate_value(c[0], c[1])) for c in self.plates.get_adjacent_coordinates_within_dimensions(x,y)])
+        return any([owner_id != min(self.plates.get_coordinate_value(c[0], c[1])) for c in self.plates.plate_map.get_adjacent_coordinates_within_dimensions(x,y)])
 
 
     def identify_interaction(self, x1, y1, x2, y2):
         origin_value = self.plates.get_coordinate_value(x1, y1)
-        origin_id = min(origin_coordinate)
+        origin_id = min(origin_value)
         destination_value = self.plates.get_coordinate_value(x2, y2)
+        if destination_value is None:
+            return 'transform'
+
         if origin_id == min(destination_value):
             # inter-plate interaction
             if self.is_boundary(x1, y1) and self.is_boundary(x2, y2):
@@ -618,7 +621,6 @@ class TectonicMovements:
         plate_id = random.choice(list(range(self.plates.plate_id)))
         vector_map = self.currents.generate_magma_current_vectors()
         vector = self.plates.get_plate_direction(plate_id, vector_map)
-        standard_direction = self.standardize_direction_vector(vector)
         
         plate_coordinates = self.get_plate_coordinates(plate_id)
         for coordinate in plate_coordinates:
@@ -640,3 +642,9 @@ class World:
         self.tectonic_splits = TectonicSplits(self.dimensions)
         for i in range(n_splits):
             self.tectonic_splits.add_initial_split(min_split_distance)
+    
+
+    def develop_splits(self):
+        finished = 0
+        while finished == 0:
+            self.tectonic_splits.develop_splits()
