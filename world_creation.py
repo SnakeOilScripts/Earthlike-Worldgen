@@ -97,7 +97,7 @@ class UpdateMap(ObjectMap):
         self.dimensions = dimensions
         self.base_object = base_object
         self.coordinates = self.create_coordinates(dimensions, base_object)
-        self.coordinates_update = self.create_coordinates(dimensions, base_object)
+        self.coordinates_update = np.copy(self.coordinates)
 
     
     def increment_coordinate_value(x, y, value):
@@ -109,7 +109,7 @@ class UpdateMap(ObjectMap):
 
     def apply_changes(self):
         self.coordinates = self.coordinates_update
-        self.coordinates_update = self.create_coordinates(self.dimensions, self.base_object)
+        self.coordinates_update = np.copy(self.coordinates)
 
 
 class SetMap(ObjectMap):
@@ -471,15 +471,16 @@ class Topography:
     # - transform -> strike-slip-fault
     # - volcanism
     # https://www.geologyin.com/2014/03/types-of-continental-boundaries.html
-    def __init__(self, dimensions, base_height=1.0):
+    def __init__(self, dimensions, base_height=100.0):
         self.dimensions = dimensions
+        self.base_height = base_height
         self.topo_map = UpdateMap(self.dimensions, 0.0)
         for coordinate in self.topo_map.get_all_coordinates():
-            self.topo_map.increment_coordinate_value(coordinate[0], coordinate[1], base_height)
+            self.topo_map.increment_coordinate_value(coordinate[0], coordinate[1], self.base_height)
         self.topo_map.apply_changes()
 
     
-    def apply_general_erosion(self, erosion_factor):
+    def apply_general_erosion(self, erosion_ratio):
         pass
 
     def point_interaction(self, x1, y1, x2, y2, interaction, ratio):
@@ -487,14 +488,29 @@ class Topography:
         # having the plate boundary occupying a coordinate breaks all systems I could come up with, here is the new plan:
         #   - for a coordinate with more than one plate_id in it, it belongs to the plate of the lowest plate_id
         #   - the ACTUAL plate boundary is a line of thickness 0 between two coordinates
-        if mode == 'transform':
-            pass
+        transfer_unit = self.topo_map.get_coordinate_value(x1, y1) * ratio
+        if self.topo_map.coordinate_outside_dimensions(x2, y2):
+            # if the interaction_point is out of dimensions, just remove the units to the transferred
+            self.topo_map.increment_coordinate_value(x1, y1, (-1) * transfer_unit)
+        elif mode == 'transform' or mode == 'transfer':
+            self.topo_map.increment_coordinate_value(x1, y1, (-1) * transfer_unit)
+            self.topo_map.increment_coordinate_value(x2, y2, transfer_unit)
         elif mode == 'divergent':
-            pass
+            self.topo_map.increment_coordinate_value(x1, y1, (-1)*transfer_unit)
+            self.topo_map.increment_coordinate_value(x2, y2, transfer_unit)
+            self.topo_map.increment_coordinate_value(x1, y1, self.base_height * ratio)
         elif mode == 'convergent':
-            pass
-        elif mode == 'transfer':
-            pass
+            # the convergent coordinate will receive units from behind
+            # give back fold_ratio * transfer_unit back to where it would come from
+            reverse_neighbor = (x2-x1*(-1), y2-y1*(-1))
+            fold_ratio = 0.5
+            self.topo_map.increment_coordinate_value(x1, y1, (-1) * transfer_unit * fold_ratio)
+            self.topo_map.increment_coordinate_value(reverse_neighbor[0], reverse_neighbor[1], transfer_unit * fold_ratio)
+        elif mode == 'subduction':
+            subduction_ratio = 0.5
+            self.topo_map.increment_coordinate_value(x1, y1, (-1 - subduction_ratio) * transfer_unit)   # create trenches by creating less than 0 values
+            self.topo_map.increment_coordinate_value(x2, y2, transfer_unit * subduction_ratio)
+        return
 
     
     def get_height(self, x, y):
@@ -534,10 +550,10 @@ class TectonicMovements:
         plate_coordinates = {}
         for i in range(self.plates.plate_id):
             plate_coordinates[i] = []
-            for coordinate in self.plates.plate_map.get_all_coordinates():
-                if i == min(self.plates.plate_map.get_coordinate_value(coordinate[0], coordinate[1])):
-                    # the plate of lowest plate_id owns the coordinate
-                    plate_coordinates[i].append(coordinate)
+        for coordinate in self.plates.plate_map.get_all_coordinates():
+            # the plate of lowest plate_id owns the coordinate
+            owner = min(self.plates.get_coordinate_value(coordinate[0], coordinate[1]))
+            plate_coordinates[owner].append(coordinate)
         self.plate_coordinates = plate_coordinates
         
 
@@ -561,24 +577,29 @@ class TectonicMovements:
     def is_boundary(self, x, y):
         # returns True either if plates contains two or more values OR if any neighbor checks that box, BECAUSE boundaries no longer occupy a point,
         # and only one plate can own the point with two or more plate_ids
-        return any([len(self.plates.get_coordinate_value(c[0], c[1])) >= 2 for c in [(x,y)] + self.plates.get_adjacent_coordinates_within_dimensions(x,y)])
+        owner_id = min(self.plates.get_coordinate_value(x,y))
+        return any([owner_id != min(self.plates.get_coordinate_value(c[0], c[1])) for c in self.plates.get_adjacent_coordinates_within_dimensions(x,y)])
 
 
-    def identify_interaction(self, x1, y1, x2, y2, plate_id):
-        origin_coordinate = self.plates.get_coordinate_value(x1, y1)
-        destination_coordinate = self.plates.get_coordinate_value(x2, y2)
-        if len(origin_coordinate) >= 2 and  len(destination_coordinate) >= 2:
-            # source and destination are plate boundaries -> transform interaction
-            return 'transform'
-        elif len(origin_coordinate) >= 2 and destination_coordinate == {plate_id}:
-            # source is a plate boundary and destination belongs to the plate in question -> divergent
-            return 'divergent'
-        elif len(origin_coordinate) >= 2:
-            # if the origin is a plate boundary and the destination is not of a the same plate, it must be convergent, as transform is already covered
-            return 'convergent'
+    def identify_interaction(self, x1, y1, x2, y2):
+        origin_value = self.plates.get_coordinate_value(x1, y1)
+        origin_id = min(origin_coordinate)
+        destination_value = self.plates.get_coordinate_value(x2, y2)
+        if origin_id == min(destination_value):
+            # inter-plate interaction
+            if self.is_boundary(x1, y1) and self.is_boundary(x2, y2):
+                return 'transform'
+            elif self.is_boundary(x1, y1):
+                return 'divergent'
+            else:
+                return 'transfer'
         else:
-            # all other modes must be plate interior to plate interior / boundary, which is treated the same in the model
-            return 'transfer'
+            # plate-2-plate interaction
+            if self.topography.get_height(x1, y1) <= self.topography.get_height(x2, y2) * self.subduction_ratio:
+                return 'subduction'
+            else:
+                return 'convergent'
+            
 
     
     def point_interaction(self, x1, y1, x2, y2, interaction_type, ratio):
@@ -604,7 +625,7 @@ class TectonicMovements:
             # get all neighbors where units are moved to
             interactions = self.get_neighbor_interactions(coordinate[0], coordinate[1], vector)
             for interaction_point in interactions:
-                interaction_type = self.identify_interaction(coordinate[0], coordinate[1], interaction_point[0], interaction_point[1], plate_id)
+                interaction_type = self.identify_interaction(coordinate[0], coordinate[1], interaction_point[0], interaction_point[1])
                 self.point_interaction(coordinate[0], coordinate[1], interaction_point[0], interaction_point[1], interaction_type, interactions[interaction_point])
         self.apply_changes()
 
