@@ -92,6 +92,19 @@ class ObjectMap:
         return (x * (length / self.get_distance(0, 0, x, y)), y * (length / self.get_distance(0, 0, x, y)))
 
 
+    def standardize_vector(self, x, y):
+        if x == 0 and y != 0:
+            return (0, y/abs(y))
+        elif x != 0 and y == 0:
+            return (x/abs(x), y)
+        elif x == 0 and y == 0:
+            return (0,0)
+        elif abs(x) > abs(y):
+            return (x/abs(x), y/abs(x))
+        else:
+            return (x/abs(y), y/abs(y))
+
+
 class UpdateMap(ObjectMap):
     
     
@@ -276,9 +289,8 @@ class Split:
         # the option choice guarantees that each end only has one neighbor in the same split
         previous_end = self.get_end_neighbor(x, y)
         self.shared_map.remove_coordinate_value(x, y, self.value)
-        goal = self.get_end_goal((x,y))
         self.remove_end((x, y))
-        self.set_end(previous_end[0], previous_end[1], goal)
+        self.set_end(previous_end[0], previous_end[1])
         self.option_blacklist.add((x,y))
 
 
@@ -484,10 +496,10 @@ class Topography:
         # having the plate boundary occupying a coordinate breaks all systems I could come up with, here is the new plan:
         #   - for a coordinate with more than one plate_id in it, it belongs to the plate of the lowest plate_id
         #   - the ACTUAL plate boundary is a line of thickness 0 between two coordinates
-        transfer_unit = self.topo_map.get_coordinate_value(x1, y1) * ratio
+        transfer_unit = round(self.topo_map.get_coordinate_value(x1, y1) * ratio, 2)
         if self.topo_map.coordinate_outside_dimensions(x2, y2):
             # if the interaction_point is out of dimensions, just remove the units to the transferred
-            self.topo_map.increment_coordinate_value(x1, y1, (-1) * transfer_unit)
+            self.topo_map.increment_coordinate_value(x1, y1, (-1) * transfer_unit)      #needs a dedicated decrement for sub-0 heights
         elif mode == 'transform' or mode == 'transfer':
             self.topo_map.increment_coordinate_value(x1, y1, (-1) * transfer_unit)
             self.topo_map.increment_coordinate_value(x2, y2, transfer_unit)
@@ -562,15 +574,18 @@ class TectonicMovements:
 
 
     def get_neighbor_interactions(self, x, y, vector):
-        # takes the normal movement vector of a plate, sets it to length 1, applies it to (x,y) and then picks all neighbors with distance less than 1
-        # out of these neighbors, 1 - percentage_of_sum_distance is the percentage of units moved to that neighbor
-        # down the line, each of these neighbors gets an identification of boundary interaction / movement
-        resized_vector = self.map_helper.resize_vector(vector[0], vector[1], 1)
+        resized_vector = self.map_helper.standardize_vector(vector[0], vector[1])
+        #available_neighbors = [n for n in self.map_helper.get_adjacent_coordinates(x, y) if ]
+        
         goal_point = (x+resized_vector[0], y+resized_vector[1])
-        available_neighbors = [n for n in self.map_helper.get_adjacent_coordinates(round(goal_point[0]), round(goal_point[1]))
+        available_neighbors = [n for n in self.map_helper.get_adjacent_coordinates(x, y)
                                 if self.map_helper.get_distance(goal_point[0], goal_point[1], n[0], n[1]) < 1]
+        if len(available_neighbors) == 1:
+            return {available_neighbors[0]:1.0}
+        elif len(available_neighbors) == 0:
+            return {}
         sum_distance = sum([self.map_helper.get_distance(goal_point[0], goal_point[1], n[0], n[1]) for n in available_neighbors])
-        neighbor_movements = {n:(1 - (self.map_helper.get_distance(goal_point[0], goal_point[1], n[0], n[1])/sum_distance)) for n in available_neighbors}
+        neighbor_movements = {n:round((1 - (self.map_helper.get_distance(goal_point[0], goal_point[1], n[0], n[1])/sum_distance)), 2) for n in available_neighbors}
         return neighbor_movements
 
 
@@ -621,10 +636,12 @@ class TectonicMovements:
         plate_id = random.choice(list(range(self.plates.plate_id)))
         vector_map = self.currents.generate_magma_current_vectors()
         vector = self.plates.get_plate_direction(plate_id, vector_map)
-        
-        plate_coordinates = self.get_plate_coordinates(plate_id)
-        for coordinate in plate_coordinates:
-            # get all neighbors where units are moved to
+        self.apply_vector_to_plate(vector, plate_id)
+
+
+    def apply_vector_to_plate(self, vector, plate_id):
+        coordinates = self.get_plate_coordinates(plate_id)
+        for coordinate in coordinates:
             interactions = self.get_neighbor_interactions(coordinate[0], coordinate[1], vector)
             for interaction_point in interactions:
                 interaction_type = self.identify_interaction(coordinate[0], coordinate[1], interaction_point[0], interaction_point[1])

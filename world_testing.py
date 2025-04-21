@@ -1,4 +1,7 @@
 from world_creation import *
+import matplotlib.pyplot as plt
+import pickle
+import sys
 
 
 def print_splitmap_ascii(split_map):
@@ -36,21 +39,33 @@ def print_topography_rounded(topography:Topography):
         print("")
 
 
-dimensions = ((0, 10),(0, 10))
+def save_object(object, filename):
+    with open(filename, "wb") as fp:
+        pickle.dump(object, fp)
 
-tectonic_splits = TectonicSplits(dimensions, 0.001)
-tectonic_splits.initialize_split((5,5), 10)
+
+def load_object(filename):
+    with open(filename, "rb") as fp:
+        o = pickle.load(fp)
+    return o
+
+
+dimensions = ((0, 50),(0, 50))
+"""
+tectonic_splits = TectonicSplits(dimensions)
+for i in range(10):
+    tectonic_splits.add_initial_split(10)
 while tectonic_splits.develop_splits() == 0:
     continue
-
+"""
+tectonic_splits = load_object("splits.pickle")
 print_splitmap_ascii(tectonic_splits.split_map)
+#save_object(tectonic_splits, "splits.pickle")
+
+#sys.exit(0)
 
 plates = TectonicPlates(dimensions)
 plates.generate_from_splits(tectonic_splits.split_map)
-
-print_coordinates_of_value(plates.plate_map, {0})
-print_coordinates_of_value(plates.plate_map, {1})
-print_coordinates_of_value(plates.plate_map, {0,1})
 
 topography = Topography(dimensions)
 magma_currents = MagmaCurrentMap(dimensions, topography.topo_map)
@@ -62,5 +77,17 @@ direction = plates.get_plate_direction(0, magma_vectors)
 topography.topo_map.increment_coordinate_value(1,3, 100.0)
 topography.topo_map.apply_changes()
 
-movements.simulate_plate_movement()
-print_topography_rounded(topography)
+#movements.apply_vector_to_plate((3,-21), 3)
+#plt.imshow(topography.topo_map.coordinates, cmap='terrain', interpolation='gaussian', vmin=-500, vmax=1000)
+#plt.savefig("test.png")
+
+
+for i in range(1000):
+    figname = f"plots/fig{i}"
+    movements.simulate_plate_movement()
+    #print_topography_rounded(topography)
+    #if i % 10 == 0:
+    plt.imshow(topography.topo_map.coordinates, cmap='terrain', interpolation='gaussian', vmin=0, vmax=600)
+    plt.savefig(figname)
+    print(figname, end="")
+    #plt.show()
