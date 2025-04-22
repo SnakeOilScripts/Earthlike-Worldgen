@@ -1,7 +1,7 @@
 from world_creation import *
 import matplotlib.pyplot as plt
 import pickle
-import sys
+import sys, time
 
 
 def print_splitmap_ascii(split_map):
@@ -51,15 +51,17 @@ def load_object(filename):
 
 
 dimensions = ((0, 50),(0, 50))
-"""
-tectonic_splits = TectonicSplits(dimensions)
-for i in range(10):
+
+tectonic_splits = TectonicSplits(dimensions, 0.5)
+for i in range(6):
     tectonic_splits.add_initial_split(10)
 while tectonic_splits.develop_splits() == 0:
     continue
-"""
-tectonic_splits = load_object("splits.pickle")
-print_splitmap_ascii(tectonic_splits.split_map)
+
+print("splits finished")
+
+#tectonic_splits = load_object("splits.pickle")
+#print_splitmap_ascii(tectonic_splits.split_map)
 #save_object(tectonic_splits, "splits.pickle")
 
 #sys.exit(0)
@@ -82,12 +84,19 @@ topography.topo_map.apply_changes()
 #plt.savefig("test.png")
 
 
-for i in range(1000):
-    figname = f"plots/fig{i}"
+for i in range(700):
+    #figname = f"plots/fig{i}"
+    start = time.time()
     movements.simulate_plate_movement()
+    stop = time.time()
+    print(i, stop-start)
     #print_topography_rounded(topography)
-    #if i % 10 == 0:
-    plt.imshow(topography.topo_map.coordinates, cmap='terrain', interpolation='gaussian', vmin=0, vmax=600)
-    plt.savefig(figname)
-    print(figname, end="")
+    #if i % 100 == 0:
+        #plt.imshow(topography.topo_map.coordinates, cmap='terrain', interpolation='gaussian', vmin=0, vmax=600)
+        #plt.savefig(figname)
+        #print(figname, stop-start)
     #plt.show()
+
+sea_level = float(topography.get_sea_level(0.2))
+plt.imshow(topography.topo_map.coordinates, cmap='terrain', interpolation='gaussian', vmin=sea_level)
+plt.savefig("continents.png")

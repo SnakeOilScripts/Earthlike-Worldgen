@@ -4,7 +4,7 @@ import sys
 import numpy as np
 import copy
 
-random.seed()
+#random.seed()
 
 
 #TODO:  1) general elevation levels (via plate tectonics) -> identify plate by randomly chosen point within it & vectors to all reachable points/closest neighbors
@@ -482,13 +482,20 @@ class Topography:
         self.topo_map.apply_changes()
 
     
-    def apply_general_erosion(self, erosion_ratio):
-        pass
+    def apply_general_erosion(self, erosion_rate):
+        for coordinate in self.topo_map.get_all_coordinates():
+            self.apply_erosion(coordinate[0], coordinate[1], erosion_rate)
+        self.topo_map.apply_changes()
+
+    
+    def apply_erosion(self, x, y, erosion_rate):
+        available_neighbors = [n for n in self.topo_map.get_adjacent_coordinates_within_dimensions(x,y)
+                                if self.topo_map.get_coordinate_value(n[0], [1]) >= self.topo_map.get_coordinate_value(x,y)]
 
 
     def apply_volcanism(self, x, y):
-        if random.random() <= self.volcanism_chance:
-            self.topo_map.increment_coordinate_value(x, y, self.base_height)
+        volcanism_potency = 3
+        self.topo_map.increment_coordinate_value(x, y, self.base_height * volcanism_potency)
 
 
     def point_interaction(self, x1, y1, x2, y2, mode, ratio):
@@ -533,6 +540,21 @@ class Topography:
         self.topo_map.apply_changes()
 
 
+    def get_sea_level(self, coverage):
+        # assuming coverage % of the world are covered in water, what is the corresponding sea level (i.e. the n-median)?
+        b = np.copy(self.topo_map.coordinates)
+        a = b.reshape(-1)
+        a.sort()
+        sea_level = a[int(len(a) * coverage)]
+        return sea_level
+    
+
+    def get_highest_peak(self):
+        b = np.copy(self.topo_map.coordinates)
+        a = b.reshape(-1)
+        return max(a)
+
+
 class Geology:
 
     def __init__(self):
@@ -552,6 +574,7 @@ class TectonicMovements:
         self.map_helper = ObjectMap(((0,1), (0,1)), 0)
         self.subduction_ratio = 0.1
         self.generate_plate_coordinate_lists()
+        self.volcanism_chance = 0.1
 
 
     # TODO: adjust this so that the boundaries no longer occupy coordinate points
@@ -630,6 +653,10 @@ class TectonicMovements:
         # perform this operation in other objects if needed
 
 
+    def apply_volcanism(self, x, y):
+        if random.random() <= self.volcanism_chance:
+            self.topography.apply_volcanism(x,y)
+
     # to avoid the scenario of plates running away from each other (and the 3 or more intersecting plate issue), only one plate is moving at a time
     def simulate_plate_movement(self):
         # pick a plate randomly:
@@ -646,13 +673,18 @@ class TectonicMovements:
             for interaction_point in interactions:
                 interaction_type = self.identify_interaction(coordinate[0], coordinate[1], interaction_point[0], interaction_point[1])
                 self.point_interaction(coordinate[0], coordinate[1], interaction_point[0], interaction_point[1], interaction_type, interactions[interaction_point])
+                if interaction_type == 'divergent':
+                    self.apply_volcanism(coordinate[0], coordinate[1])
+                elif interaction_type == 'subduction':
+                    self.apply_volcanism(interaction_point[0], interaction_point[1])
         self.apply_changes()
 
 
 class World:
 
-    def __init__(self, dimensions):
+    def __init__(self, dimensions, seed):
         self.dimensions = dimensions
+        random.seed(seed)
     
 
     def prepare_tectonics(self, n_splits, min_split_distance):
@@ -665,3 +697,8 @@ class World:
         finished = 0
         while finished == 0:
             self.tectonic_splits.develop_splits()
+    
+
+    def domain_expansion(self, expansion_factor):
+        # make a map more detailed by inserting expansion_factor new coordinates between each coordinate and linear transfer of values
+        pass
