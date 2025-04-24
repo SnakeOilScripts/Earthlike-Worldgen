@@ -3,13 +3,13 @@ import math
 import sys
 import numpy as np
 import copy
+from scipy import stats
 
 #random.seed()
 
 
-#TODO:  1) general elevation levels (via plate tectonics) -> identify plate by randomly chosen point within it & vectors to all reachable points/closest neighbors
-#          then simulate movement of plates by moving middle point & adjusting vectors
-#       2) general erision to get classic foothill shapes (abstract wind&water) -> make map more detailed
+#TODO:  
+#       2) general erosion to get classic foothill shapes (abstract wind&water) -> make map more detailed
 #       3) add x units of water to every point, travel to lowest reachable point, simulate sea level and bodies of water with it
 #       4) water cycle and river/lake formation
 #       5) local climate, (ground type), humidity
@@ -24,8 +24,8 @@ class ObjectMap:
 
     def __init__(self, dimensions, base_object):
         self.dimensions = dimensions
-        self.coordinates = self.create_coordinates(dimensions, base_object)
-        
+        self.base_object = base_object
+        self.coordinates = self.create_coordinates(dimensions, base_object) 
 
 
     def create_coordinates(self, dimensions, base_object):
@@ -47,8 +47,10 @@ class ObjectMap:
         return coordinates
 
 
-    def coordinate_outside_dimensions(self, x, y):
-        return (x < self.dimensions[0][0] or x >= self.dimensions[0][1] or y < self.dimensions[1][0] or y >= self.dimensions[1][1])
+    def coordinate_outside_dimensions(self, x, y, dimensions=None):
+        if dimensions is None:
+            dimensions = self.dimensions
+        return (x < dimensions[0][0] or x >= dimensions[0][1] or y < dimensions[1][0] or y >= dimensions[1][1])
 
 
     def get_adjacent_coordinates(self, x, y):
@@ -59,12 +61,16 @@ class ObjectMap:
         return [c for c in self.get_adjacent_coordinates(x,y) if c[0] == x or c[1] == y]
 
 
-    def get_adjacent_coordinates_within_dimensions(self, x, y):
-        return [c for c in self.get_adjacent_coordinates(x,y) if not self.coordinate_outside_dimensions(c[0], c[1])]
+    def get_adjacent_coordinates_within_dimensions(self, x, y, dimensions=None):
+        if dimensions is None:
+            dimensions = self.dimensions
+        return [c for c in self.get_adjacent_coordinates(x,y) if not self.coordinate_outside_dimensions(c[0], c[1], dimensions)]
 
     
-    def get_adjacent_nondiagonal_coordinates_within_dimensions(self, x, y):
-        return [c for c in self.get_adjacent_nondiagonal_coordinates(x,y) if not self.coordinate_outside_dimensions(c[0], c[1])]
+    def get_adjacent_nondiagonal_coordinates_within_dimensions(self, x, y, dimensions=None):
+        if dimensions is None:
+            dimensions = self.dimensions
+        return [c for c in self.get_adjacent_nondiagonal_coordinates(x,y) if not self.coordinate_outside_dimensions(c[0], c[1], dimensions)]
     
 
     def get_coordinate_value(self, x, y):
@@ -103,6 +109,51 @@ class ObjectMap:
             return (x/abs(x), y/abs(x))
         else:
             return (x/abs(y), y/abs(y))
+    
+
+    def get_expanded_dimensions(self, expansion_factor):
+        return ((self.dimensions[0][0], self.dimensions[0][1]*expansion_factor), (self.dimensions[1][0], self.dimensions[1][1]*expansion_factor))
+
+
+    def dimension_expansion(self, expansion_factor):
+        # a square of expansion_factor * expansion_factor points will inherit the value of a single coordinate from the old coordinates
+        expanded_dimensions = self.get_expanded_dimensions(expansion_factor)
+        new_coordinates = self.create_coordinates(expanded_dimensions, self.base_object)
+        for coordinate in self.get_all_coordinates():
+            for x in range(coordinate[0]*expansion_factor, (coordinate[0]+1)*expansion_factor):
+                for y in range(coordinate[1]*expansion_factor, (coordinate[1]+1)*expansion_factor):
+                    new_coordinates[x,y] = self.get_coordinate_value(coordinate[0], coordinate[1])
+        self.coordinates = new_coordinates
+        self.dimensions = expanded_dimensions
+
+
+    def fill_gaussian_coordinate(self, x, y, xlocal, ylocal, maximum_value, xmean, ymean, standard_deviation):
+        if not self.coordinate_outside_dimensions(x,y):
+            self.coordinates[x,y] = maximum_value * (stats.norm.pdf(xlocal+1, xmean, standard_deviation) + stats.norm.pdf(ylocal+1, ymean, standard_deviation))
+        else:
+            return -1
+
+
+    def fill_gaussian_square(self, xstart, ystart, length, maximum_value, xmean, ymean, standard_deviation):
+        # creates a normal distribution along the x and the y axis with maximum_value as constant factor, 
+        # length/6 as standard deviation (edges are 3rd standard deviation and near 0)
+        # and x + length/2 or y + length/2 as mean
+        for x in range(xstart, xstart+length):
+            for y in range(ystart, ystart+length):
+                self.fill_gaussian_coordinate(x, y, x, y, maximum_value, xmean, ymean, standard_deviation)
+
+
+    def gaussian_dimension_expansion(self, expansion_factor):
+        expanded_dimensions = self.get_expanded_dimensions(expansion_factor)
+        old_coordinates = np.copy(self.coordinates)
+        self.coordinates = self.create_coordinates(expanded_dimensions, self.base_object)
+        for coordinate in self.get_all_coordinates():
+            maximum_value = old_coordinates[coordinate[0],coordinate[1]]
+            xmean = coordinate[0]*expansion_factor + (expansion_factor+1)/2
+            ymean = coordinate[1]*expansion_factor + (expansion_factor+1)/2
+            standard_deviation = expansion_factor/6
+            self.fill_gaussian_square(coordinate[0]*expansion_factor, coordinate[1]*expansion_factor, expansion_factor, maximum_value, xmean, ymean, standard_deviation)
+        self.dimensions = expanded_dimensions
 
 
 class UpdateMap(ObjectMap):
@@ -110,13 +161,14 @@ class UpdateMap(ObjectMap):
     
     def __init__(self, dimensions, base_object):
         self.dimensions = dimensions
+        self.update_dimensions = dimensions
         self.base_object = base_object
         self.coordinates = self.create_coordinates(dimensions, base_object)
         self.coordinates_update = np.copy(self.coordinates)
 
     
     def increment_coordinate_value(self, x, y, value):
-        if not self.coordinate_outside_dimensions(x, y):
+        if not self.coordinate_outside_dimensions(x, y, self.update_dimensions):
             self.coordinates_update[x,y] += value
         else:
             return -1
@@ -125,6 +177,40 @@ class UpdateMap(ObjectMap):
     def apply_changes(self):
         self.coordinates = self.coordinates_update
         self.coordinates_update = np.copy(self.coordinates)
+        self.dimensions = self.update_dimensions
+
+    
+    def dimension_expansion(self, expansion_factor):
+        super().dimension_expansion(expansion_factor)
+        self.coordinates_update = np.copy(self.coordinates)
+
+
+    def fill_gaussian_coordinate(self, x, y, xlocal, ylocal, maximum_value, xmean, ymean, standard_deviation):
+        value = maximum_value * (stats.norm.pdf(xlocal+1, xmean, standard_deviation) + stats.norm.pdf(ylocal+1, ymean, standard_deviation))
+        self.increment_coordinate_value(x,y,value)
+
+
+    def gaussian_dimension_expansion(self, expansion_factor):
+        super().gaussian_dimension_expansion(expansion_factor)
+        self.coordinates_update = np.copy(self.coordinates)
+
+    
+    def transitional_gaussian_dimension_expansion(self, expansion_factor):
+        self.update_dimensions = self.get_expanded_dimensions(expansion_factor)
+        self.coordinates_update = self.create_coordinates(self.update_dimensions, self.base_object)
+        for coordinate in self.get_all_coordinates():
+            maximum_value = self.get_coordinate_value(coordinate[0], coordinate[1])
+            xmean = coordinate[0]*expansion_factor + (expansion_factor+1)/2
+            ymean = coordinate[1]*expansion_factor + (expansion_factor+1)/2
+            standard_deviation = expansion_factor/2
+            self.fill_gaussian_square(coordinate[0]*expansion_factor, coordinate[1]*expansion_factor, expansion_factor, maximum_value, xmean, ymean, standard_deviation)
+            for n in self.get_adjacent_coordinates_within_dimensions(coordinate[0], coordinate[1]):
+                maximum_value = self.get_coordinate_value(n[0], n[1])
+                xmean = n[0]*expansion_factor + (expansion_factor+1)/2
+                ymean = n[1]*expansion_factor + (expansion_factor+1)/2
+                self.fill_gaussian_square(coordinate[0]*expansion_factor, coordinate[1]*expansion_factor, expansion_factor, maximum_value, xmean, ymean, standard_deviation)
+        self.apply_changes()
+
 
 
 class SetMap(ObjectMap):
@@ -481,17 +567,6 @@ class Topography:
             self.topo_map.increment_coordinate_value(coordinate[0], coordinate[1], self.base_height)
         self.topo_map.apply_changes()
 
-    
-    def apply_general_erosion(self, erosion_rate):
-        for coordinate in self.topo_map.get_all_coordinates():
-            self.apply_erosion(coordinate[0], coordinate[1], erosion_rate)
-        self.topo_map.apply_changes()
-
-    
-    def apply_erosion(self, x, y, erosion_rate):
-        available_neighbors = [n for n in self.topo_map.get_adjacent_coordinates_within_dimensions(x,y)
-                                if self.topo_map.get_coordinate_value(n[0], [1]) >= self.topo_map.get_coordinate_value(x,y)]
-
 
     def apply_volcanism(self, x, y):
         volcanism_potency = 3
@@ -553,6 +628,18 @@ class Topography:
         b = np.copy(self.topo_map.coordinates)
         a = b.reshape(-1)
         return max(a)
+
+
+    def expand_dimensions(self, factor):
+        self.topo_map.dimension_expansion(factor)
+    
+
+    def expand_dimensions_gaussian(self, factor):
+        self.topo_map.gaussian_dimension_expansion(factor)
+
+
+    def expand_dimensions_transitional_gaussian(self, factor):
+        self.topo_map.transitional_gaussian_dimension_expansion(factor)
 
 
 class Geology:
@@ -697,8 +784,16 @@ class World:
         finished = 0
         while finished == 0:
             self.tectonic_splits.develop_splits()
-    
 
-    def domain_expansion(self, expansion_factor):
-        # make a map more detailed by inserting expansion_factor new coordinates between each coordinate and linear transfer of values
-        pass
+    
+    def prepare_tectonic_movements(self):
+        self.tectonic_plates = TectonicPlates(self.dimensions)
+        self.tectonic_plates.generate_from_splits(self.tectonic_splits.split_map)
+        self.topography = Topography(self.dimensions)
+        self.magma_currents = MagmaCurrentMap(self.topography.topo_map)
+        self.tectonic_movements = TectonicMovements(self.magma_currents, self.tectonic_plates, self.topography)
+
+    
+    def simulate_tectonic_movement(self):
+        self.tectonic_movements.simulate_plate_movement()
+    

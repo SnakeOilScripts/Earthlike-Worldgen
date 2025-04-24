@@ -50,6 +50,9 @@ def load_object(filename):
     return o
 
 
+
+random.seed("coinage")
+
 dimensions = ((0, 50),(0, 50))
 
 tectonic_splits = TectonicSplits(dimensions, 0.5)
@@ -84,6 +87,8 @@ topography.topo_map.apply_changes()
 #plt.savefig("test.png")
 
 
+
+
 for i in range(700):
     #figname = f"plots/fig{i}"
     start = time.time()
@@ -98,5 +103,15 @@ for i in range(700):
     #plt.show()
 
 sea_level = float(topography.get_sea_level(0.2))
-plt.imshow(topography.topo_map.coordinates, cmap='terrain', interpolation='gaussian', vmin=sea_level)
-plt.savefig("continents.png")
+#plt.imshow(topography.topo_map.coordinates, cmap='terrain', interpolation='gaussian', vmin=sea_level)
+plt.imshow(topography.topo_map.coordinates, cmap='terrain', vmin=sea_level)
+plt.savefig("plots/continents.png")
+
+for i in range(3):
+
+    topography.expand_dimensions_transitional_gaussian(2)
+
+
+    sea_level = float(topography.get_sea_level(0.2))
+    plt.imshow(topography.topo_map.coordinates, cmap='terrain', vmin=sea_level)
+    plt.savefig(f"plots/continents_gaussian{i}.png")
