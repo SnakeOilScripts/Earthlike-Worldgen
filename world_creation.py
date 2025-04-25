@@ -644,11 +644,20 @@ class Topography:
 
 
 class Geology:
-
+    # TODO: rock cycle: igneous -> sedimentary -> polymorphic (time-based)
+        # igneous rocks occur at volcanism and divergent boundaries
+        # igneous rock turns into sedimentary rock based on time, sedimentary rock turns into polymorphic rock
+    # TODO: metal occurrences at the surface, possibly related to different types of rock
+        # metals of interest: Fe, Cu, Pb, Sn, Ag, Au, Pt, Zn, Bi
+        # weight determines where the metals are in the crust, overall abundance also plays a role
+        # https://iperiodictable.com/wp-content/uploads/2020/06/Periodic-Table-of-Elements-with-Names.png
+        # https://en.wikipedia.org/wiki/Abundance_of_elements_in_Earth's_crust
+        # https://www.geologyin.com/2014/05/tectonic-settings-of-metal-deposits.html
+        # https://www.geologyin.com/2023/07/how-rocks-are-made-rock-cycle-explained.html
     def __init__(self):
         pass
 
-    def point_interaction(self, x1, y1, x2, y2, interaction, ratio):
+    def point_interaction(self, x1, y1, x2, y2, mode, ratio):
         # point_interaction must check if the coordinate is within dimensions because of how the interaction calculation works
         pass
 

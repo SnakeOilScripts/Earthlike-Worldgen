@@ -51,13 +51,15 @@ def load_object(filename):
 
 
 
-random.seed("coinage")
+#random.seed("coinage")
+random.seed("flowergarden")
 
-dimensions = ((0, 50),(0, 50))
+
+dimensions = ((0, 100),(0, 100))
 
 tectonic_splits = TectonicSplits(dimensions, 0.5)
-for i in range(6):
-    tectonic_splits.add_initial_split(10)
+for i in range(10):
+    tectonic_splits.add_initial_split(30)
 while tectonic_splits.develop_splits() == 0:
     continue
 
@@ -89,7 +91,7 @@ topography.topo_map.apply_changes()
 
 
 
-for i in range(1400):
+for i in range(3000):
     #figname = f"plots/fig{i}"
     start = time.time()
     movements.simulate_plate_movement()
