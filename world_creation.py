@@ -210,6 +210,7 @@ class UpdateMap(ObjectMap):
                 ymean = n[1]*expansion_factor + (expansion_factor+1)/2
                 self.fill_gaussian_square(coordinate[0]*expansion_factor, coordinate[1]*expansion_factor, expansion_factor, maximum_value, xmean, ymean, standard_deviation)
         self.apply_changes()
+        # print \r somewhere for progress info
 
 
 

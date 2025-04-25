@@ -89,7 +89,7 @@ topography.topo_map.apply_changes()
 
 
 
-for i in range(700):
+for i in range(1400):
     #figname = f"plots/fig{i}"
     start = time.time()
     movements.simulate_plate_movement()
