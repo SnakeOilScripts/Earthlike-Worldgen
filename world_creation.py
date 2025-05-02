@@ -213,6 +213,22 @@ class UpdateMap(ObjectMap):
         # print \r somewhere for progress info
 
 
+class UpdateDictMap(UpdateMap):
+
+    def __init__(self, dimensions, base_object:dict):
+        super().__ini__(dimensions, base_object)
+
+    
+    def increment_coordinate_value(self, x, y, values):
+        for key in values:
+            self.coordinates_update[x,y][key] += values[key]
+
+
+    def fill_gaussian_coordinate(self, x, y, xlocal, ylocal, maximum_values, xmean, ymean, standard_deviation):
+        for key in maximum_values:
+            value = maximum_values[key] * (stats.norm.pdf(xlocal+1, xmean, standard_deviation) + stats.norm.pdf(ylocal+1, ymean, standard_deviation))
+            self.increment_coordinate_value(x, y, {key:value})
+
 
 class SetMap(ObjectMap):
     def __init__(self, dimensions):
@@ -351,10 +367,6 @@ class Split:
         nth_neighbor = self.get_nth_end_neighbor(end, n)
         end_vector = (end[0]-nth_neighbor[0], end[1]-nth_neighbor[1])
         angled_vector = (x-nth_neighbor[0], y-nth_neighbor[1])
-        #l_end_vector = self.shared_map.get_distance(0,0,end_vector[0],end_vector[1])
-        #l_angled_vector = self.shared_map.get_distance(0,0,angled_vector[0],angled_vector[1])
-        #dot_product = end_vector[0]*angled_vector[0] + end_vector[1]*angled_vector[1]
-        #angle = math.acos(round((dot_product) / (l_end_vector * l_angled_vector), 2))
         return self.shared_map.base_vector_angle(end_vector[0], end_vector[1], angled_vector[0], angled_vector[1])
 
 
@@ -549,6 +561,52 @@ class MagmaCurrentMap:
         self.surface_map = copy.deepcopy(new_map)
 
 
+class TectonicDomain:
+    def __init__(self, dimensions, base_unit):
+        self.dimensions = dimensions
+        self.base_unit = base_unit
+        self.value_map = UpdateMap(self.dimensions, base_height)
+    
+
+    def apply_volcanism(self, x, y):
+        volcanism_potency = 3
+        self.value_map.increment_coordinate_value(x, y, self.base_unit * volcanism_potency)
+
+
+    def get_transfer_unit(self, value, ratio):
+        return round(value * ratio, 2)
+
+    # TODO: make this base class fitting for both Topography and Geology
+    def point_interaction(self, x1, y1, x2, y2, mode, ratio):
+        # point_interaction must check if the coordinate is within dimensions because of how the interaction calculation works
+        # having the plate boundary occupying a coordinate breaks all systems I could come up with, here is the new plan:
+        #   - for a coordinate with more than one plate_id in it, it belongs to the plate of the lowest plate_id
+        #   - the ACTUAL plate boundary is a line of thickness 0 between two coordinates
+        transfer_unit = self.get_transfer_unit(self.get_coordinate_value(x1, y1), ratio)
+        if self.value_map.coordinate_outside_dimensions(x2, y2):
+            # if the interaction_point is out of dimensions, just remove the units to the transferred
+            self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1))
+        elif mode == 'transform' or mode == 'transfer':
+            self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1))
+            self.value_map.increment_coordinate_value(x2, y2, transfer_unit)
+        elif mode == 'divergent':
+            self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1))
+            self.value_map.increment_coordinate_value(x2, y2, transfer_unit)
+            self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(self.base_unit, ratio))
+            # the thin replacement plate at the edge has a high volcanism risk
+        elif mode == 'convergent':
+            # the convergent coordinate will receive units from behind
+            # give back fold_ratio * transfer_unit back to where it would come from
+            reverse_neighbor = (x2-x1*(-1), y2-y1*(-1))
+            fold_ratio = 0.5
+            self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, fold_ratio - 1))
+            self.value_map.increment_coordinate_value(reverse_neighbor[0], reverse_neighbor[1], self.get_transfer_unit(transfer_unit, fold_ratio))
+        elif mode == 'subduction':
+            subduction_ratio = 0.5
+            self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1 - subduction_ratio))   # create trenches by creating less than 0 values
+            self.value_map.increment_coordinate_value(x2, y2, self.get_transfer_unit(transfer_unit, subduction_ratio))
+        return
+
 
 # TODO: implement, duh
 class Topography:
@@ -559,15 +617,11 @@ class Topography:
     # - transform -> strike-slip-fault
     # - volcanism
     # https://www.geologyin.com/2014/03/types-of-continental-boundaries.html
-    def __init__(self, dimensions, base_height=100.0, volcanism_chance=0.01):
+    def __init__(self, dimensions, base_height=100.0):
         self.dimensions = dimensions
         self.base_height = base_height
-        self.volcanism_chance = volcanism_chance
-        self.topo_map = UpdateMap(self.dimensions, 0.0)
-        for coordinate in self.topo_map.get_all_coordinates():
-            self.topo_map.increment_coordinate_value(coordinate[0], coordinate[1], self.base_height)
-        self.topo_map.apply_changes()
-
+        self.topo_map = UpdateMap(self.dimensions, base_height)
+        
 
     def apply_volcanism(self, x, y):
         volcanism_potency = 3
@@ -591,7 +645,6 @@ class Topography:
             self.topo_map.increment_coordinate_value(x2, y2, transfer_unit)
             self.topo_map.increment_coordinate_value(x1, y1, self.base_height * ratio)
             # the thin replacement plate at the edge has a high volcanism risk
-            self.apply_volcanism(x1, y1)
         elif mode == 'convergent':
             # the convergent coordinate will receive units from behind
             # give back fold_ratio * transfer_unit back to where it would come from
@@ -604,7 +657,6 @@ class Topography:
             self.topo_map.increment_coordinate_value(x1, y1, (-1 - subduction_ratio) * transfer_unit)   # create trenches by creating less than 0 values
             self.topo_map.increment_coordinate_value(x2, y2, transfer_unit * subduction_ratio)
             # the mountain range that is raised by subduction has a high volcanism risk
-            self.apply_volcanism(x2, y2)
         return
 
     
@@ -655,10 +707,34 @@ class Geology:
         # https://www.geologyin.com/2014/05/tectonic-settings-of-metal-deposits.html
         # https://www.geologyin.com/2023/07/how-rocks-are-made-rock-cycle-explained.html
     def __init__(self):
-        pass
+        self.abundance = {
+            "Fe":5.63,
+            "Cu":0.006,
+            "Pb":0.0014,
+            "Sn":0.00023,
+            "Ag":0.0000075,
+            "Au":0.0000004,
+            "Zn":0.007,
+            "Bi":0.00000085,
+        }
+        self.masses = {
+            "Fe":26,
+            "Cu":29,
+            "Pb":82,
+            "Sn":50,
+            "Ag":47,
+            "Au":79,
+            "Zn":30,
+            "Bi":83
+        }
+
 
     def point_interaction(self, x1, y1, x2, y2, mode, ratio):
         # point_interaction must check if the coordinate is within dimensions because of how the interaction calculation works
+        pass
+    
+
+    def apply_rock_cycle(self):
         pass
 
 
