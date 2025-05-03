@@ -75,14 +75,14 @@ plates = TectonicPlates(dimensions)
 plates.generate_from_splits(tectonic_splits.split_map)
 
 topography = Topography(dimensions)
-magma_currents = MagmaCurrentMap(dimensions, topography.topo_map)
+magma_currents = MagmaCurrentMap(dimensions, topography.get_map())
 movements = TectonicMovements(magma_currents, plates, topography)
 
 magma_vectors = magma_currents.generate_magma_current_vectors()
 direction = plates.get_plate_direction(0, magma_vectors)
 
-topography.topo_map.increment_coordinate_value(1,3, 100.0)
-topography.topo_map.apply_changes()
+topography.value_map.increment_coordinate_value(1,3, 100.0)
+topography.value_map.apply_changes()
 
 #movements.apply_vector_to_plate((3,-21), 3)
 #plt.imshow(topography.topo_map.coordinates, cmap='terrain', interpolation='gaussian', vmin=-500, vmax=1000)
@@ -106,7 +106,7 @@ for i in range(700):
 
 sea_level = float(topography.get_sea_level(0.2))
 #plt.imshow(topography.topo_map.coordinates, cmap='terrain', interpolation='gaussian', vmin=sea_level)
-plt.imshow(topography.topo_map.coordinates, cmap='terrain', vmin=sea_level)
+plt.imshow(topography.value_map.coordinates, cmap='terrain', vmin=sea_level)
 plt.savefig("plots/continents.png")
 
 for i in range(3):
@@ -115,5 +115,5 @@ for i in range(3):
 
 
     sea_level = float(topography.get_sea_level(0.2))
-    plt.imshow(topography.topo_map.coordinates, cmap='terrain', vmin=sea_level)
+    plt.imshow(topography.value_map.coordinates, cmap='terrain', vmin=sea_level)
     plt.savefig(f"plots/continents_gaussian{i}.png")
