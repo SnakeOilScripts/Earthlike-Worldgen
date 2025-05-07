@@ -581,6 +581,10 @@ class TectonicDomain:
         return self.value_map
 
 
+    def apply_changes(self):
+        self.value_map.apply_changes()
+
+
     # TODO: make this base class fitting for both Topography and Geology
     def point_interaction(self, x1, y1, x2, y2, mode, ratio):
         # point_interaction must check if the coordinate is within dimensions because of how the interaction calculation works
@@ -632,38 +636,6 @@ class Topography(TectonicDomain):
         volcanism_potency = 3
         self.value_map.increment_coordinate_value(x, y, self.base_unit * volcanism_potency)
 
-    """
-    def point_interaction(self, x1, y1, x2, y2, mode, ratio):
-        # point_interaction must check if the coordinate is within dimensions because of how the interaction calculation works
-        # having the plate boundary occupying a coordinate breaks all systems I could come up with, here is the new plan:
-        #   - for a coordinate with more than one plate_id in it, it belongs to the plate of the lowest plate_id
-        #   - the ACTUAL plate boundary is a line of thickness 0 between two coordinates
-        transfer_unit = round(self.value_map.get_coordinate_value(x1, y1) * ratio, 2)
-        if self.value_map.coordinate_outside_dimensions(x2, y2):
-            # if the interaction_point is out of dimensions, just remove the units to the transferred
-            self.value_map.increment_coordinate_value(x1, y1, (-1) * transfer_unit)      #needs a dedicated decrement for sub-0 heights
-        elif mode == 'transform' or mode == 'transfer':
-            self.value_map.increment_coordinate_value(x1, y1, (-1) * transfer_unit)
-            self.value_map.increment_coordinate_value(x2, y2, transfer_unit)
-        elif mode == 'divergent':
-            self.value_map.increment_coordinate_value(x1, y1, (-1)*transfer_unit)
-            self.value_map.increment_coordinate_value(x2, y2, transfer_unit)
-            self.value_map.increment_coordinate_value(x1, y1, self.base_unit * ratio)
-            # the thin replacement plate at the edge has a high volcanism risk
-        elif mode == 'convergent':
-            # the convergent coordinate will receive units from behind
-            # give back fold_ratio * transfer_unit back to where it would come from
-            reverse_neighbor = (x2-x1*(-1), y2-y1*(-1))
-            fold_ratio = 0.5
-            self.value_map.increment_coordinate_value(x1, y1, (-1) * transfer_unit * fold_ratio)
-            self.value_map.increment_coordinate_value(reverse_neighbor[0], reverse_neighbor[1], transfer_unit * fold_ratio)
-        elif mode == 'subduction':
-            subduction_ratio = 0.5
-            self.value_map.increment_coordinate_value(x1, y1, (-1 - subduction_ratio) * transfer_unit)   # create trenches by creating less than 0 values
-            self.value_map.increment_coordinate_value(x2, y2, transfer_unit * subduction_ratio)
-            # the mountain range that is raised by subduction has a high volcanism risk
-        return
-        """
     
     def get_height(self, x, y):
         return self.value_map.get_coordinate_value(x, y)
@@ -711,30 +683,45 @@ class Geology(TectonicDomain):
         # https://en.wikipedia.org/wiki/Abundance_of_elements_in_Earth's_crust
         # https://www.geologyin.com/2014/05/tectonic-settings-of-metal-deposits.html
         # https://www.geologyin.com/2023/07/how-rocks-are-made-rock-cycle-explained.html
+        # https://opengeology.org/Mineralogy/9-ore-deposits-and-economic-minerals/
+        # https://www.geologyin.com/2023/09/mafic-vs-felsic-rocks-difference.html
+        # mafic vs felsic rock seems a very sensible metric to distinguish iron deposits from other deposits, it is consistent with earth's ore deposits
+        # https://www.geologyin.com/2015/11/how-ore-deposits-are-formed.html
+        # - copper veins form 2000m beneath the surface because of water precipitation, i.e. veins are only realistically accessible in mountains
+        # https://www.youtube.com/@sprottedu2478/search?query=ore%20deposits
     def __init__(self, dimensions):
         self.abundance = {"Fe":5.63, "Cu":0.006, "Pb":0.0014, "Sn":0.00023, "Ag":0.0000075, "Au":0.0000004, "Zn":0.007, "Bi":0.00000085}
         self.masses = {"Fe":26, "Cu":29, "Pb":82, "Sn":50, "Ag":47, "Au":79, "Zn":30, "Bi":83}
         self.dimensions = dimensions
         mineral_percentage = sum([self.abundance[elem] for elem in self.abundance])
         self.abundance["rock"] = 100.0 - mineral_percentage
-        self.value_map = UpdateDictMap(self.dimensions, self.abundance)
-
-
-    def point_interaction(self, x1, y1, x2, y2, mode, ratio):
-        # point_interaction must check if the coordinate is within dimensions because of how the interaction calculation works
-        pass
+        self.base_unit = copy.deepcopy(self.abundance)
+        self.value_map = UpdateDictMap(self.dimensions, self.base_unit)
     
 
+    def apply_volcanism(self, x, y):
+        #TODO: for more variety in rock types (and thereby mineral occurrence), random percentages of elements in magma are possible, based on solar abundance
+        volcanism_potency = 3
+        self.value_map.increment_coordinate_value(x, y, self.get_transfer_unit(self.base_unit, volcanism_potency))
+
+
+    def get_transfer_unit(self, value, ratio):
+        pass
+
+    #TODO:  make transfer of minerals more likely if they are lighter (and closer to the surface), 
+    #       which leads to iron and copper spreading far, and gold, silver and tin remaining in high mountains
+    # alternatively, make mineral occurrence based on rock types for ore deposition (which relies on rock cycle and tectonic processes)
     def apply_rock_cycle(self):
         pass
 
 
 class TectonicMovements:
 
-    def __init__(self, magma_currents:MagmaCurrentMap, tectonic_plates:TectonicPlates, topography:Topography):
+    def __init__(self, magma_currents:MagmaCurrentMap, tectonic_plates:TectonicPlates, topography:Topography, geology:Geology):
         self.currents = magma_currents
         self.plates = tectonic_plates
         self.topography = topography
+        self.geology = geology
         self.map_helper = ObjectMap(((0,1), (0,1)), 0)
         self.subduction_ratio = 0.1
         self.generate_plate_coordinate_lists()
@@ -809,15 +796,18 @@ class TectonicMovements:
     
     def point_interaction(self, x1, y1, x2, y2, interaction_type, ratio):
         self.topography.point_interaction(x1, y1, x2, y2, interaction_type, ratio)
+        self.geology.point_interaction(x1, y1, x2, y2, interaction_type, ratio)
         # perform other interactions if necessary
 
 
     def apply_changes(self):
         self.topography.apply_changes()
+        self.geology.apply_changes()
         # perform this operation in other objects if needed
 
 
     def apply_volcanism(self, x, y):
+        #TODO: add hotspots as a means of encouragin inter-plate mountain ranges and peninsulae / island archipelagos
         if random.random() <= self.volcanism_chance:
             self.topography.apply_volcanism(x,y)
 
