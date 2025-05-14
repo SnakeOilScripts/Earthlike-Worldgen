@@ -594,27 +594,53 @@ class TectonicDomain:
         transfer_unit = round(self.get_transfer_unit(self.value_map.get_coordinate_value(x1, y1), ratio), 2)
         if self.value_map.coordinate_outside_dimensions(x2, y2):
             # if the interaction_point is out of dimensions, just remove the units to the transferred
-            self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1))
-        elif mode == 'transform' or mode == 'transfer':
-            self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1))
-            self.value_map.increment_coordinate_value(x2, y2, transfer_unit)
+            self.falloff_interaction(x1, y1, transfer_unit)
+        elif mode == 'transfer':
+            self.transfer_interaction(x1, y1, x2, y2, transfer_unit)
+        elif mode == 'transform':
+            self.transform_interaction(x1, y1, x2, y2, transfer_unit)
         elif mode == 'divergent':
-            self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1))
-            self.value_map.increment_coordinate_value(x2, y2, transfer_unit)
-            self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(self.base_unit, ratio))
-            # the thin replacement plate at the edge has a high volcanism risk
+            self.divergent_interaction(x1, y1, x2, y2, transfer_unit, ratio)
         elif mode == 'convergent':
-            # the convergent coordinate will receive units from behind
-            # give back fold_ratio * transfer_unit back to where it would come from
-            reverse_neighbor = (x2-x1*(-1), y2-y1*(-1))
-            fold_ratio = 0.5
-            self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, fold_ratio * -1))
-            self.value_map.increment_coordinate_value(reverse_neighbor[0], reverse_neighbor[1], self.get_transfer_unit(transfer_unit, fold_ratio))
+            self.convergent_interaction(x1, y1, x2, y2, transfer_unit, ratio)
         elif mode == 'subduction':
-            subduction_ratio = 0.5
-            self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1 - subduction_ratio))   # create trenches by creating less than 0 values
-            self.value_map.increment_coordinate_value(x2, y2, self.get_transfer_unit(transfer_unit, subduction_ratio))
+            self.subduction_interaction(x1, y1, x2, y2, transfer_unit, ratio)
         return
+    
+
+    def falloff_interaction(self, x1, y1, transfer_unit):
+        self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1))
+
+
+    def transfer_interaction(self, x1, y1, x2, y2, transfer_unit):
+        self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1))
+        self.value_map.increment_coordinate_value(x2, y2, transfer_unit)
+
+
+    def transform_interaction(self, x1, y1, x2, y2, transfer_unit, ratio):
+        self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1))
+        self.value_map.increment_coordinate_value(x2, y2, transfer_unit)
+
+
+    def divergent_interaction(self, x1, y1, x2, y2, transfer_unit, ratio):
+        self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1))
+        self.value_map.increment_coordinate_value(x2, y2, transfer_unit)
+        self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(self.base_unit, ratio))
+
+
+    def convergent_interaction(self, x1, y1, x2, y2, transfer_unit, ratio):
+        # the convergent coordinate will receive units from behind
+        # give back fold_ratio * transfer_unit back to where it would come from
+        reverse_neighbor = (x2-x1*(-1), y2-y1*(-1))
+        fold_ratio = 0.5
+        self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, fold_ratio * -1))
+        self.value_map.increment_coordinate_value(reverse_neighbor[0], reverse_neighbor[1], self.get_transfer_unit(transfer_unit, fold_ratio))
+
+
+    def subduction_interaction(self, x1, y1, x2, y2, transfer_unit, ratio):
+        subduction_ratio = 0.5
+        self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1 - subduction_ratio))   # create trenches by creating less than 0 values
+        self.value_map.increment_coordinate_value(x2, y2, self.get_transfer_unit(transfer_unit, subduction_ratio))
 
 
 # TODO: implement, duh
@@ -716,6 +742,11 @@ class Geology(TectonicDomain):
         #TODO: for more variety in rock types (and thereby mineral occurrence), random percentages of elements in magma are possible, based on solar abundance
         volcanism_potency = 3
         self.value_map.increment_coordinate_value(x, y, self.get_transfer_unit(self.base_unit, volcanism_potency))
+
+
+    def transform_interaction(self, x1, y1, x2, y2, transfer_unit, ratio):
+        # TODO: creates gorges where intrusive rock becomes visible - strong shift in the intrusive/extrusive ratio
+        pass
 
 
     def get_transfer_unit(self, value, ratio):
