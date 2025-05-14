@@ -690,14 +690,27 @@ class Geology(TectonicDomain):
         # - copper veins form 2000m beneath the surface because of water precipitation, i.e. veins are only realistically accessible in mountains
         # https://www.youtube.com/@sprottedu2478/search?query=ore%20deposits
     def __init__(self, dimensions):
-        self.abundance = {"Fe":5.63, "Cu":0.006, "Pb":0.0014, "Sn":0.00023, "Ag":0.0000075, "Au":0.0000004, "Zn":0.007, "Bi":0.00000085}
-        self.masses = {"Fe":26, "Cu":29, "Pb":82, "Sn":50, "Ag":47, "Au":79, "Zn":30, "Bi":83}
         self.dimensions = dimensions
-        mineral_percentage = sum([self.abundance[elem] for elem in self.abundance])
-        self.abundance["rock"] = 100.0 - mineral_percentage
-        self.base_unit = copy.deepcopy(self.abundance)
-        self.value_map = UpdateDictMap(self.dimensions, self.base_unit)
+        # TODO: model mafic vs felsic rocks (100 element representations in list, calculate the silica content) with random.choices
+        # also model intrusive vs volcanic rock, point interactions could do this - erosion shifts a intrusive/extrusive ratio towards intrusive, newly formed formations shift it back
+        # the ratio models the surface accessible rock type
     
+    def determine_rock_type(self):
+        abundant_elements = {"O":0.641, "Si":0.282, "Al":0.0823, "Fe":0.0563, "Ca":0.0415, "Na":0.0236, "Mg":0.0233, "K":0.0209}
+        abundand_elements = ["O", "Si", "Al", "Fe", "Ca", "Na", "Mg", "K"]
+        abundances = [0.641, 0.282, 0.0823, 0.0563, 0.0415, 0.0236, 0.0233, 0.0209]
+        magma_contents = {"O":0, "Si":0, "Al":0, "Fe":0, "Ca":0, "Na":0, "Mg":0, "K":0}
+        for i in range(1000):
+            magma_contents[random.choices(abundant_elements, weights=abundances)[0]] += 1
+        if magma_contents["O"] + magma_contents["Si"] >= 650:
+            return "felsic"
+        elif magma_contents["O"] + magma_contents["Si"] >= 550:
+            return "intermediate"
+        elif magma_contents["O"] + magma_contents["Si"] >= 450:
+            return "mafic"
+        else:
+            return "ultramafic"
+
 
     def apply_volcanism(self, x, y):
         #TODO: for more variety in rock types (and thereby mineral occurrence), random percentages of elements in magma are possible, based on solar abundance
@@ -708,9 +721,7 @@ class Geology(TectonicDomain):
     def get_transfer_unit(self, value, ratio):
         pass
 
-    #TODO:  make transfer of minerals more likely if they are lighter (and closer to the surface), 
-    #       which leads to iron and copper spreading far, and gold, silver and tin remaining in high mountains
-    # alternatively, make mineral occurrence based on rock types for ore deposition (which relies on rock cycle and tectonic processes)
+
     def apply_rock_cycle(self):
         pass
 
