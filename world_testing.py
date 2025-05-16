@@ -55,7 +55,8 @@ random.seed("coinage")
 #random.seed("flowergarden")
 
 
-dimensions = ((0, 50),(0, 50))
+#dimensions = ((0, 50),(0, 50))
+dimensions = ((0,100), (0,100))
 
 tectonic_splits = TectonicSplits(dimensions, 0.5)
 for i in range(10):
@@ -91,7 +92,8 @@ topography.value_map.apply_changes()
 
 
 
-for i in range(700):
+#for i in range(700):
+for i in range(1400):
     #figname = f"plots/fig{i}"
     start = time.time()
     movements.simulate_plate_movement()
@@ -109,7 +111,7 @@ sea_level = float(topography.get_sea_level(0.2))
 plt.imshow(topography.value_map.coordinates, cmap='terrain', vmin=sea_level)
 plt.savefig("plots/continents.png")
 
-for i in range(3):
+for i in range(4):
 
     topography.expand_dimensions_transitional_gaussian(2)
 

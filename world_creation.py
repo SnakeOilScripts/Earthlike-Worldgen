@@ -185,32 +185,26 @@ class UpdateMap(ObjectMap):
         self.coordinates_update = np.copy(self.coordinates)
 
 
-    def fill_gaussian_coordinate(self, x, y, xlocal, ylocal, maximum_value, xmean, ymean, standard_deviation):
-        value = maximum_value * (stats.norm.pdf(xlocal+1, xmean, standard_deviation) + stats.norm.pdf(ylocal+1, ymean, standard_deviation))
-        self.increment_coordinate_value(x,y,value)
-
-
     def gaussian_dimension_expansion(self, expansion_factor):
         super().gaussian_dimension_expansion(expansion_factor)
         self.coordinates_update = np.copy(self.coordinates)
-
     
+
     def transitional_gaussian_dimension_expansion(self, expansion_factor):
+        standard_deviation = expansion_factor/2
+        dp_array = np.full((expansion_factor*3, expansion_factor*3), 0.0)
+        for x in range(expansion_factor*3):
+            for y in range(expansion_factor*3):
+                dp_array[x,y] = stats.norm.pdf(x+1, expansion_factor + (expansion_factor+1)/2, standard_deviation) + stats.norm.pdf(y+1, expansion_factor + (expansion_factor+1)/2, standard_deviation)
         self.update_dimensions = self.get_expanded_dimensions(expansion_factor)
         self.coordinates_update = self.create_coordinates(self.update_dimensions, self.base_object)
         for coordinate in self.get_all_coordinates():
-            maximum_value = self.get_coordinate_value(coordinate[0], coordinate[1])
-            xmean = coordinate[0]*expansion_factor + (expansion_factor+1)/2
-            ymean = coordinate[1]*expansion_factor + (expansion_factor+1)/2
-            standard_deviation = expansion_factor/2
-            self.fill_gaussian_square(coordinate[0]*expansion_factor, coordinate[1]*expansion_factor, expansion_factor, maximum_value, xmean, ymean, standard_deviation)
-            for n in self.get_adjacent_coordinates_within_dimensions(coordinate[0], coordinate[1]):
-                maximum_value = self.get_coordinate_value(n[0], n[1])
-                xmean = n[0]*expansion_factor + (expansion_factor+1)/2
-                ymean = n[1]*expansion_factor + (expansion_factor+1)/2
-                self.fill_gaussian_square(coordinate[0]*expansion_factor, coordinate[1]*expansion_factor, expansion_factor, maximum_value, xmean, ymean, standard_deviation)
+            multiplier = self.get_coordinate_value(coordinate[0], coordinate[1])
+            for x in range(expansion_factor*3):
+                for y in range(expansion_factor*3):
+                    self.increment_coordinate_value((coordinate[0]-1)*expansion_factor + x, (coordinate[1]-1)*expansion_factor + y, dp_array[x,y]*multiplier)
         self.apply_changes()
-        # print \r somewhere for progress info
+
 
 
 class UpdateDictMap(UpdateMap):
@@ -598,7 +592,7 @@ class TectonicDomain:
         elif mode == 'transfer':
             self.transfer_interaction(x1, y1, x2, y2, transfer_unit)
         elif mode == 'transform':
-            self.transform_interaction(x1, y1, x2, y2, transfer_unit)
+            self.transform_interaction(x1, y1, x2, y2, transfer_unit, ratio)
         elif mode == 'divergent':
             self.divergent_interaction(x1, y1, x2, y2, transfer_unit, ratio)
         elif mode == 'convergent':
@@ -715,6 +709,7 @@ class Geology(TectonicDomain):
         # https://www.geologyin.com/2015/11/how-ore-deposits-are-formed.html
         # - copper veins form 2000m beneath the surface because of water precipitation, i.e. veins are only realistically accessible in mountains
         # https://www.youtube.com/@sprottedu2478/search?query=ore%20deposits
+        # https://geologyscience.com/ore-minerals/copper-cu-ore/#Copper_Cu_Ore_Deposits
     def __init__(self, dimensions):
         self.dimensions = dimensions
         # TODO: model mafic vs felsic rocks (100 element representations in list, calculate the silica content) with random.choices
@@ -759,11 +754,11 @@ class Geology(TectonicDomain):
 
 class TectonicMovements:
 
-    def __init__(self, magma_currents:MagmaCurrentMap, tectonic_plates:TectonicPlates, topography:Topography, geology:Geology):
+    def __init__(self, magma_currents:MagmaCurrentMap, tectonic_plates:TectonicPlates, topography:Topography):
         self.currents = magma_currents
         self.plates = tectonic_plates
         self.topography = topography
-        self.geology = geology
+        #self.geology = geology
         self.map_helper = ObjectMap(((0,1), (0,1)), 0)
         self.subduction_ratio = 0.1
         self.generate_plate_coordinate_lists()
@@ -838,13 +833,13 @@ class TectonicMovements:
     
     def point_interaction(self, x1, y1, x2, y2, interaction_type, ratio):
         self.topography.point_interaction(x1, y1, x2, y2, interaction_type, ratio)
-        self.geology.point_interaction(x1, y1, x2, y2, interaction_type, ratio)
+        #self.geology.point_interaction(x1, y1, x2, y2, interaction_type, ratio)
         # perform other interactions if necessary
 
 
     def apply_changes(self):
         self.topography.apply_changes()
-        self.geology.apply_changes()
+        #self.geology.apply_changes()
         # perform this operation in other objects if needed
 
 
