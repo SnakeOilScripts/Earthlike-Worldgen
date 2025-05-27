@@ -51,7 +51,7 @@ def load_object(filename):
 
 
 
-random.seed("coinage")
+random.seed("highland")
 #random.seed("flowergarden")
 
 
@@ -59,7 +59,8 @@ random.seed("coinage")
 dimensions = ((0,100), (0,100))
 
 tectonic_splits = TectonicSplits(dimensions, 0.5)
-for i in range(10):
+#for i in range(10):
+for i in range(20):
     tectonic_splits.add_initial_split(10)
 while tectonic_splits.develop_splits() == 0:
     continue
@@ -93,23 +94,24 @@ topography.value_map.apply_changes()
 
 
 #for i in range(700):
-for i in range(1400):
-    #figname = f"plots/fig{i}"
+for i in range(30000):
+    figname = f"plots/fig{i}"
     start = time.time()
     movements.simulate_plate_movement()
     stop = time.time()
     print(i, stop-start)
     #print_topography_rounded(topography)
-    #if i % 100 == 0:
-        #plt.imshow(topography.topo_map.coordinates, cmap='terrain', interpolation='gaussian', vmin=0, vmax=600)
-        #plt.savefig(figname)
-        #print(figname, stop-start)
+    if i % 1000 == 0:
+        sea_level = float(topography.get_sea_level(0.2))
+        plt.imshow(topography.value_map.coordinates, cmap='terrain', interpolation='gaussian', vmin=sea_level)
+        plt.savefig(figname)
+        print(figname, stop-start)
     #plt.show()
 
 sea_level = float(topography.get_sea_level(0.2))
 #plt.imshow(topography.topo_map.coordinates, cmap='terrain', interpolation='gaussian', vmin=sea_level)
-plt.imshow(topography.value_map.coordinates, cmap='terrain', vmin=sea_level)
-plt.savefig("plots/continents.png")
+#plt.imshow(topography.value_map.coordinates, cmap='terrain', vmin=sea_level)
+#plt.savefig("plots/continents.png")
 
 for i in range(4):
 
