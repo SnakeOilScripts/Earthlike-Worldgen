@@ -732,6 +732,28 @@ class Geology(TectonicDomain):
         else:
             return "ultramafic"
 
+    # types of copper deposits:
+    #   - porphyry -> intrusive igneous rock + hot fluid (volcanism)
+    #   - VMS -> volcanism in the ocean (historically significant, associated with subduction zones)
+    #   . skarn -> intrusive igneous rock + carbonate sedimentary rock + volcanism (also contains all other base metals + precious metals, depending on host rock)
+    #   - hydrothermal -> volcanic activity + limestone/dolomite "and other rocks"
+    # malachite forms as oxidation of exposed copper from many of these different deposits, especially VMS since sulfides are likely to turn into malachite
+
+    # types of tin deposits:
+    #
+
+    # types of lead deposits:
+    #
+
+    # types of silver deposits:
+    #
+
+    # types of gold deposits:
+    #
+
+    # types of iron deposits:
+    #
+
 
     def apply_volcanism(self, x, y):
         #TODO: for more variety in rock types (and thereby mineral occurrence), random percentages of elements in magma are possible, based on solar abundance
@@ -763,6 +785,32 @@ class TectonicMovements:
         self.subduction_ratio = 0.1
         self.generate_plate_coordinate_lists()
         self.volcanism_chance = 0.1
+        self.hotspots = []
+        self.n_hotspots = 5
+        self.hotspot_min_age = 50
+        self.hotspot_max_age = 500
+
+
+    def generate_hotspot(self, min_age, max_age):
+        return {
+                "x":random.randint(self.topography.dimensions[0][0], self.topography.dimensions[0][1]),
+                "y":random.randint(self.topography.dimensions[1][0], self.topography.dimensions[1][1]),
+                "lifespan":random.randint(min_age, max_age)
+        }
+
+
+    def manage_hotspots(self):
+        self.hotspots = [h for h in self.hotspots if h["lifespan"] > 0]
+        while len(self.hotspots) < self.n_hotspots:
+            hotspot = self.generate_hotspot(self.hotspot_min_age, self.hotspot_max_age)
+            if not hotspot in self.hotspots:
+                self.hotspots.append(hotspot)
+
+
+    def apply_hotspots(self):
+        for hotspot in self.hotspots:
+            self.apply_volcanism(hotspot["x"], hotspot["y"])
+            hotspot["lifespan"] -= 1
 
 
     # TODO: adjust this so that the boundaries no longer occupy coordinate points
@@ -855,6 +903,9 @@ class TectonicMovements:
         vector_map = self.currents.generate_magma_current_vectors()
         vector = self.plates.get_plate_direction(plate_id, vector_map)
         self.apply_vector_to_plate(vector, plate_id)
+        self.apply_hotspots()
+        self.manage_hotspots()
+        
 
 
     def apply_vector_to_plate(self, vector, plate_id):
