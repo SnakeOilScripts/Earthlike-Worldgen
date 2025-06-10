@@ -3,7 +3,9 @@ import math
 import sys
 import numpy as np
 import copy
+import time
 from scipy import stats
+from functools import reduce
 
 #random.seed()
 
@@ -665,19 +667,34 @@ class Topography(TectonicDomain):
         self.value_map.apply_changes()
 
 
-    def get_sea_level(self, coverage):
+    def get_sea_level_old(self, coverage):
         # assuming coverage % of the world are covered in water, what is the corresponding sea level (i.e. the n-median)?
         b = np.copy(self.value_map.coordinates)
         a = b.reshape(-1)
         a.sort()
         sea_level = a[int(len(a) * coverage)]
         return sea_level
-    
 
-    def get_highest_peak(self):
+
+    def get_sea_level(self, base_water_factor=5):
         b = np.copy(self.value_map.coordinates)
-        a = b.reshape(-1)
-        return max(a)
+        heights = b.reshape(-1)
+        heights.sort()
+        water_units = len(heights) * self.base_unit * base_water_factor
+        
+        j = int((len(heights)-1) / 2)
+        index = j
+        while j != 0:
+            f = lambda x,y: x-heights[index]+y
+            sum_of_differences = reduce(f, heights[:index]) - heights[index]
+            j = int(j/2)
+            if abs(sum_of_differences) <= abs(water_units):
+                index += j
+            else:
+                index -= j            
+        return heights[index]
+
+
 
 
     def expand_dimensions(self, factor):
@@ -740,19 +757,38 @@ class Geology(TectonicDomain):
     # malachite forms as oxidation of exposed copper from many of these different deposits, especially VMS since sulfides are likely to turn into malachite
 
     # types of tin deposits:
-    #
+    #   - placer  -> adjacent to vein/lode deposit
+    #   - vein/lode  -> granitic rock + hydrothermal (volcanism)
+    #   - greisen -> granite intrusions + hydrothermal
+    #   - pegmatite -> igneos pegmatite rock (likely not relevant)
+    #   - skarn -> same as above
 
     # types of lead deposits:
-    #
+    #   - skarn
+    #   - hydrothermal
+    #   - weathering/oxidation
+    #   - faults (tectonic) + hydrothermal / mineral rich fluids
 
     # types of silver deposits:
-    #
+    #   - vein/lode -> calcite + hydrothermal
+    #   - hydrothermal
+    #   - porphyry -> intrusive igneous rock + volcanism, similar but not equal to skarn
+    #   - skarn
+    #   - placer / sedimentary -> adjacent to skarn
 
     # types of gold deposits:
-    #
+    #   - vein/lode -> hydrothermal + quartz
+    #   - placer deposits (adjacent to hydrothermal quartz / skarn)
+    #   - skarn
+    #   NOTE: electrum is a naturally occurring alloy of silver and gold
 
     # types of iron deposits:
-    #
+    #   - bog iron (irrelevant for geologly)
+    #   - BIF
+    #   - skarn
+
+    #   https://geologyscience.com/ore-genesis/hydrothermal-ore-minerals/
+    #   -> porphyry and skarn are both hydrothermal, and both different
 
 
     def apply_volcanism(self, x, y):

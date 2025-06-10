@@ -1,8 +1,20 @@
 from world_creation import *
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 import pickle
 import sys, time
 
+
+green_spectrum = colors.LinearSegmentedColormap.from_list("mycmap1", ["xkcd:light green", "xkcd:green"]).resampled(128)
+brown_spectrum = colors.LinearSegmentedColormap.from_list("mycmap2", ["xkcd:pale yellow", "xkcd:tan", "xkcd:brown"]).resampled(128)
+green_list = list(green_spectrum(range(128)))
+brown_list = list(brown_spectrum(range(128)))
+combination_list = green_list + brown_list
+#print(combination_list, len(combination_list))
+
+#sys.exit(0)
+new_terrain = colors.ListedColormap(combination_list)
+new_terrain.set_under("xkcd:cerulean")
 
 def print_splitmap_ascii(split_map):
     for y in range(split_map.dimensions[1][0], split_map.dimensions[1][1]):
@@ -51,6 +63,7 @@ def load_object(filename):
 
 
 
+#random.seed("plateau")
 random.seed("highland")
 #random.seed("flowergarden")
 
@@ -102,22 +115,24 @@ for i in range(30000):
     print(i, stop-start)
     #print_topography_rounded(topography)
     if i % 1000 == 0:
-        sea_level = float(topography.get_sea_level(0.2))
-        plt.imshow(topography.value_map.coordinates, cmap='terrain', interpolation='gaussian', vmin=sea_level)
+        sea_level = float(topography.get_sea_level())
+        plt.imshow(topography.value_map.coordinates, cmap="terrain", interpolation='gaussian', vmin=sea_level)
         plt.savefig(figname)
         print(figname, stop-start)
     #plt.show()
 
-sea_level = float(topography.get_sea_level(0.2))
+sea_level = float(topography.get_sea_level())
 #plt.imshow(topography.topo_map.coordinates, cmap='terrain', interpolation='gaussian', vmin=sea_level)
 #plt.imshow(topography.value_map.coordinates, cmap='terrain', vmin=sea_level)
 #plt.savefig("plots/continents.png")
+
+save_object(topography, "topography.pickle")
 
 for i in range(4):
 
     topography.expand_dimensions_transitional_gaussian(2)
 
 
-    sea_level = float(topography.get_sea_level(0.2))
-    plt.imshow(topography.value_map.coordinates, cmap='terrain', vmin=sea_level)
+    #sea_level = float(topography.get_sea_level())
+    plt.imshow(topography.value_map.coordinates, cmap="terrain", vmin=sea_level)
     plt.savefig(f"plots/continents_gaussian{i}.png")
