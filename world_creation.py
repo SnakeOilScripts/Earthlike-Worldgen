@@ -204,7 +204,7 @@ class UpdateMap(ObjectMap):
             multiplier = self.get_coordinate_value(coordinate[0], coordinate[1])
             for x in range(expansion_factor*3):
                 for y in range(expansion_factor*3):
-                    self.increment_coordinate_value((coordinate[0]-1)*expansion_factor + x, (coordinate[1]-1)*expansion_factor + y, dp_array[x,y]*multiplier)
+                    self.increment_coordinate_value((coordinate[0]-1)*expansion_factor + x, (coordinate[1]-1)*expansion_factor + y, (dp_array[x,y]*multiplier) / 3) # division by 3 is necessary to counter tripling of value over time
         self.apply_changes()
 
 
