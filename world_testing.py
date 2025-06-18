@@ -109,7 +109,7 @@ def visualize_topography(topography, figname):
     plt.savefig(figname)
 
 def visualize_geology_rocks(geology, figname):
-    fig, ax = plt.subplots(ncols=4)
+    fig, ax = plt.subplots(ncols=7)
     felsic_map = colors.LinearSegmentedColormap.from_list("mycmap1", ["white", "tab:red"])
     ax[0].imshow(geology.get_single_attribute_value_map("felsic"), cmap=felsic_map, interpolation='gaussian')
     intermediate_map = colors.LinearSegmentedColormap.from_list("mycmap1", ["white", "tab:brown"])
@@ -118,6 +118,12 @@ def visualize_geology_rocks(geology, figname):
     ax[2].imshow(geology.get_single_attribute_value_map("mafic"), cmap=mafic_map, interpolation='gaussian')
     ultramafic_map = colors.LinearSegmentedColormap.from_list("mycmap1", ["white", "tab:green"])
     ax[3].imshow(geology.get_single_attribute_value_map("ultramafic"), cmap=ultramafic_map, interpolation='gaussian')
+    igneous_map = colors.LinearSegmentedColormap.from_list("mycmap1", ["white", "tab:cyan"])
+    ax[4].imshow(geology.get_single_attribute_value_map("igneous"), cmap=igneous_map, interpolation='gaussian')
+    sedimentary_map = colors.LinearSegmentedColormap.from_list("mycmap1", ["white", "tab:orange"])
+    ax[5].imshow(geology.get_single_attribute_value_map("sedimentary"), cmap=sedimentary_map, interpolation='gaussian')
+    metamorphic_map = colors.LinearSegmentedColormap.from_list("mycmap1", ["white", "tab:pink"])
+    ax[6].imshow(geology.get_single_attribute_value_map("metamorphic"), cmap=metamorphic_map, interpolation='gaussian')
     plt.savefig(figname)
 
 #sea_level = float(topography.get_sea_level())

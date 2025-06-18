@@ -555,6 +555,8 @@ class MagmaCurrentMap:
 
 
 class TectonicDomain:
+    subduction_ratio = 0.5
+    fold_ratio = 0.5
     def __init__(self, dimensions, base_unit):
         self.dimensions = dimensions
         self.base_unit = base_unit
@@ -625,15 +627,13 @@ class TectonicDomain:
         # the convergent coordinate will receive units from behind
         # give back fold_ratio * transfer_unit back to where it would come from
         reverse_neighbor = (x2-x1*(-1), y2-y1*(-1))
-        fold_ratio = 0.5
-        self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, fold_ratio * -1))
-        self.value_map.increment_coordinate_value(reverse_neighbor[0], reverse_neighbor[1], self.get_transfer_unit(transfer_unit, fold_ratio))
+        self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, self.fold_ratio * -1))
+        self.value_map.increment_coordinate_value(reverse_neighbor[0], reverse_neighbor[1], self.get_transfer_unit(transfer_unit, self.fold_ratio))
 
 
     def subduction_interaction(self, x1, y1, x2, y2, transfer_unit, ratio):
-        subduction_ratio = 0.5
-        self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1 - subduction_ratio))   # create trenches by creating less than 0 values
-        self.value_map.increment_coordinate_value(x2, y2, self.get_transfer_unit(transfer_unit, subduction_ratio))
+        self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1 - self.subduction_ratio))   # create trenches by creating less than 0 values
+        self.value_map.increment_coordinate_value(x2, y2, self.get_transfer_unit(transfer_unit, self.subduction_ratio))
 
 
     def create_new_unit(self):
@@ -722,16 +722,18 @@ class Geology(TectonicDomain):
         self.element_data = {"O":0.641, "Si":0.282, "Al":0.0823, "Fe":0.0563, "Ca":0.0415, "Na":0.0236, "Mg":0.0233, "K":0.0209}
         #self.abundant_elements = ["O", "Si", "Al", "Fe", "Ca", "Na", "Mg", "K"]
         #self.abundances = [0.641, 0.282, 0.0823, 0.0563, 0.0415, 0.0236, 0.0233, 0.0209]
-        self.abundant_elements = ["Si", "Al", "Fe", "Ca", "Na", "Mg", "K"]
+        self.abundant_elements = ["Si", "Al", "Fe", "Ca", "Na", "Mg", "K"]  #including Oxygen makes it the most abundant by default, breaking rock type logic
         self.abundances = [0.282, 0.0823, 0.0563, 0.0415, 0.0236, 0.0233, 0.0209]
 
         self.dimensions = dimensions
         self.base_unit_size = 100
-        self.base_unit = {"felsic":0, "intermediate":0, "mafic":0, "ultramafic":0}
+        self.base_unit = {"felsic":0, "intermediate":0, "mafic":0, "ultramafic":0, "igneous":0, "sedimentary":0, "metamorphic":0, "carbonate":0}
         for i in range(self.base_unit_size):
             rock_type = self.determine_rock_type()
             self.base_unit[rock_type] += 1
         self.value_map = UpdateDictMap(self.dimensions, self.base_unit)
+        self.cycle_ticker = 0
+        self.cycle_interval = 100
         # TODO: model mafic vs felsic rocks (100 element representations in list, calculate the silica content) with random.choices
         # also model intrusive vs volcanic rock, point interactions could do this - erosion shifts a intrusive/extrusive ratio towards intrusive, newly formed formations shift it back
         # the ratio models the surface accessible rock type
@@ -753,7 +755,7 @@ class Geology(TectonicDomain):
 
 
     def create_new_unit(self):
-        unit = {"felsic":0, "intermediate":0, "mafic":0, "ultramafic":0}
+        unit = {"felsic":0, "intermediate":0, "mafic":0, "ultramafic":0, "igneous":self.base_unit_size}
         rock_type = self.determine_rock_type()
         unit[rock_type] += self.base_unit_size
         return unit
@@ -812,14 +814,48 @@ class Geology(TectonicDomain):
         return unit
 
 
+    # subduction turns the transferred sedimentary rock fully into metamorphic rock
+    def subduction_interaction(self, x1, y1, x2, y2, transfer_unit, ratio):
+        super().subduction_interaction(x1, y1, x2, y2, transfer_unit, ratio)
+        metamorphic_transfer = self.get_transfer_unit({"sedimentary":transfer_unit["sedimentary"]*-1, "metamorphic":transfer_unit["sedimentary"]}, self.subduction_ratio)
+        self.value_map.increment_coordinate_value(x2, y2, metamorphic_transfer)
+
+
     def get_single_attribute_value_map(self, attribute):
         helper_map = ObjectMap(self.dimensions, 0.0)
         for coordinate in self.value_map.get_all_coordinates():
             helper_map.coordinates[coordinate[0],coordinate[1]] = self.value_map.coordinates[coordinate[0],coordinate[1]][attribute]
         return helper_map.coordinates
 
+
     def apply_rock_cycle(self):
-        pass
+        if self.cycle_ticker % self.cycle_interval != 0:
+            return
+        print("applying rock cycle")
+        for coordinate in self.value_map.get_all_coordinates():
+            # simplified and based on guess-work: if igneous rock dominates, turn into sediment, if sediment dominates, 
+            # turn into metamorphic, if metamorphic dominates, turn into igneous, cycle
+            value = self.value_map.coordinates[coordinate[0],coordinate[1]]
+            if value["igneous"] >= value["sedimentary"] and value["igneous"] >= value["metamorphic"]:
+                self.value_map.increment_coordinate_value(coordinate[0], coordinate[1], {"igneous":-1*self.base_unit_size, "sedimentary":self.base_unit_size})
+            elif value["sedimentary"] > value["igneous"] and value["sedimentary"] >= value["metamorphic"]:
+                self.value_map.increment_coordinate_value(coordinate[0], coordinate[1], {"sedimentary":-1*self.base_unit_size, "metamorphic":self.base_unit_size})
+            else:
+                self.value_map.increment_coordinate_value(coordinate[0], coordinate[1], {"metamorphic":-1*self.base_unit_size, "igneous":self.base_unit_size})
+    
+
+    def add_carbonate(self, topography):
+        if self.cycle_ticker % self.cycle_interval != 0:
+            return
+        print("adding carbonate")
+        sea_level = topography.get_sea_level()
+        for coordinate in self.value_map.get_all_coordinates():
+            if topography.value_map.coordinates[coordinate[0],coordinate[1]] < sea_level:
+                self.value_map.increment_coordinate_value(coordinate[0], coordinate[1], {"carbonate":1})
+
+
+    def increment_cycle_ticker(self):
+        self.cycle_ticker += 1
 
 
 class TectonicMovements:
@@ -955,8 +991,12 @@ class TectonicMovements:
         vector_map = self.currents.generate_magma_current_vectors()
         vector = self.plates.get_plate_direction(plate_id, vector_map)
         self.apply_vector_to_plate(vector, plate_id)
+        self.geology.apply_rock_cycle()
+        self.geology.add_carbonate(self.topography)
+        self.geology.increment_cycle_ticker()
         self.apply_hotspots()
         self.manage_hotspots()
+        self.apply_changes()
         
 
 
@@ -971,7 +1011,7 @@ class TectonicMovements:
                     self.apply_volcanism(coordinate[0], coordinate[1])
                 elif interaction_type == 'subduction':
                     self.apply_volcanism(interaction_point[0], interaction_point[1])
-        self.apply_changes()
+        #self.apply_changes()
 
 
 class World:
