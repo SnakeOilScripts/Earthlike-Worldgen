@@ -851,7 +851,7 @@ class Geology(TectonicDomain):
         sea_level = topography.get_sea_level()
         for coordinate in self.value_map.get_all_coordinates():
             if topography.value_map.coordinates[coordinate[0],coordinate[1]] < sea_level:
-                self.value_map.increment_coordinate_value(coordinate[0], coordinate[1], {"carbonate":1})
+                self.value_map.increment_coordinate_value(coordinate[0], coordinate[1], {"carbonate":1, "sedimentary":1})
 
 
     def increment_cycle_ticker(self):
