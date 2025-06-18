@@ -62,24 +62,24 @@ def load_object(filename):
     return o
 
 
-def generate():
-    #random.seed("plateau")
-    random.seed("highland")
-    #random.seed("flowergarden")
-
-    #dimensions = ((0, 50),(0, 50))
-    dimensions = ((0,100), (0,100))
+def initialize_world(seed, dimensions, n_splits, split_distance):
+    random.seed(seed)
     tectonic_splits = TectonicSplits(dimensions, 0.5)
-    for i in range(20):
-        tectonic_splits.add_initial_split(10)
+    for i in range(n_splits):
+        tectonic_splits.add_initial_split(split_distance)
     while tectonic_splits.develop_splits() == 0:
         continue
     print("splits finished")
+    return tectonic_splits
+
+
+def generate(dimensions, tectonic_splits):
     plates = TectonicPlates(dimensions)
     plates.generate_from_splits(tectonic_splits.split_map)
     topography = Topography(dimensions)
+    geology = Geology(dimensions)
     magma_currents = MagmaCurrentMap(dimensions, topography.get_map())
-    movements = TectonicMovements(magma_currents, plates, topography)
+    movements = TectonicMovements(magma_currents, plates, topography, geology)
     magma_vectors = magma_currents.generate_magma_current_vectors()
     direction = plates.get_plate_direction(0, magma_vectors)
     topography.value_map.increment_coordinate_value(1,3, 100.0)
@@ -93,16 +93,32 @@ def generate():
         print(i, stop-start)
         #print_topography_rounded(topography)
         if i % 1000 == 0:
-            sea_level = float(topography.get_sea_level())
-            plt.imshow(topography.value_map.coordinates, cmap=new_terrain, interpolation='gaussian', vmin=sea_level)
-            plt.savefig(figname)
+            visualize_geology_rocks(geology, figname)
             print(figname, stop-start)
         #plt.show()
+    return topography, geology
 
 def avg_height(topography:Topography):
     heights = np.copy(topography.value_map.coordinates)
     heights = heights.reshape(-1)
     return sum(heights)/len(heights)
+
+def visualize_topography(topography, figname):
+    sea_level = float(topography.get_sea_level())
+    plt.imshow(topography.value_map.coordinates, cmap=new_terrain, interpolation='gaussian', vmin=sea_level)
+    plt.savefig(figname)
+
+def visualize_geology_rocks(geology, figname):
+    fig, ax = plt.subplots(ncols=4)
+    felsic_map = colors.LinearSegmentedColormap.from_list("mycmap1", ["white", "tab:red"])
+    ax[0].imshow(geology.get_single_attribute_value_map("felsic"), cmap=felsic_map, interpolation='gaussian')
+    intermediate_map = colors.LinearSegmentedColormap.from_list("mycmap1", ["white", "tab:brown"])
+    ax[1].imshow(geology.get_single_attribute_value_map("intermediate"), cmap=intermediate_map, interpolation='gaussian')
+    mafic_map = colors.LinearSegmentedColormap.from_list("mycmap1", ["white", "tab:gray"])
+    ax[2].imshow(geology.get_single_attribute_value_map("mafic"), cmap=mafic_map, interpolation='gaussian')
+    ultramafic_map = colors.LinearSegmentedColormap.from_list("mycmap1", ["white", "tab:green"])
+    ax[3].imshow(geology.get_single_attribute_value_map("ultramafic"), cmap=ultramafic_map, interpolation='gaussian')
+    plt.savefig(figname)
 
 #sea_level = float(topography.get_sea_level())
 #plt.imshow(topography.topo_map.coordinates, cmap='terrain', interpolation='gaussian', vmin=sea_level)
@@ -110,8 +126,13 @@ def avg_height(topography:Topography):
 #plt.savefig("plots/continents.png")
 
 #save_object(topography, "topography.pickle")
-topography = load_object("topography.pickle")
-print(avg_height(topography))
+#topography = load_object("topography.pickle")
+#print(avg_height(topography))
+
+dimensions = ((0,50),(0,50))
+splits = initialize_world("ernalia", dimensions, 10, 15)
+topography, geology = generate(dimensions, splits)
+
 
 for i in range(4):
 

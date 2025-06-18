@@ -212,18 +212,15 @@ class UpdateMap(ObjectMap):
 class UpdateDictMap(UpdateMap):
 
     def __init__(self, dimensions, base_object:dict):
-        super().__ini__(dimensions, base_object)
+        super().__init__(dimensions, base_object)
 
     
     def increment_coordinate_value(self, x, y, values):
-        for key in values:
-            self.coordinates_update[x,y][key] += values[key]
-
-
-    def fill_gaussian_coordinate(self, x, y, xlocal, ylocal, maximum_values, xmean, ymean, standard_deviation):
-        for key in maximum_values:
-            value = maximum_values[key] * (stats.norm.pdf(xlocal+1, xmean, standard_deviation) + stats.norm.pdf(ylocal+1, ymean, standard_deviation))
-            self.increment_coordinate_value(x, y, {key:value})
+        if not self.coordinate_outside_dimensions(x,y):
+            for key in values:
+                self.coordinates_update[x,y][key] += values[key]
+        else:
+            return -1
 
 
 class SetMap(ObjectMap):
@@ -566,11 +563,11 @@ class TectonicDomain:
 
     def apply_volcanism(self, x, y):
         volcanism_potency = 3
-        self.value_map.increment_coordinate_value(x, y, self.base_unit * volcanism_potency)
+        self.value_map.increment_coordinate_value(x, y, self.get_transfer_unit(self.create_new_unit(), volcanism_potency))
 
 
     def get_transfer_unit(self, value, ratio):
-        return value * ratio
+        return round(value * ratio, 2)
 
 
     def get_map(self):
@@ -587,7 +584,7 @@ class TectonicDomain:
         # having the plate boundary occupying a coordinate breaks all systems I could come up with, here is the new plan:
         #   - for a coordinate with more than one plate_id in it, it belongs to the plate of the lowest plate_id
         #   - the ACTUAL plate boundary is a line of thickness 0 between two coordinates
-        transfer_unit = round(self.get_transfer_unit(self.value_map.get_coordinate_value(x1, y1), ratio), 2)
+        transfer_unit = self.get_transfer_unit(self.value_map.get_coordinate_value(x1, y1), ratio)
         if self.value_map.coordinate_outside_dimensions(x2, y2):
             # if the interaction_point is out of dimensions, just remove the units to the transferred
             self.falloff_interaction(x1, y1, transfer_unit)
@@ -621,7 +618,7 @@ class TectonicDomain:
     def divergent_interaction(self, x1, y1, x2, y2, transfer_unit, ratio):
         self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1))
         self.value_map.increment_coordinate_value(x2, y2, transfer_unit)
-        self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(self.base_unit, ratio))
+        self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(self.create_new_unit(), ratio))
 
 
     def convergent_interaction(self, x1, y1, x2, y2, transfer_unit, ratio):
@@ -637,6 +634,11 @@ class TectonicDomain:
         subduction_ratio = 0.5
         self.value_map.increment_coordinate_value(x1, y1, self.get_transfer_unit(transfer_unit, -1 - subduction_ratio))   # create trenches by creating less than 0 values
         self.value_map.increment_coordinate_value(x2, y2, self.get_transfer_unit(transfer_unit, subduction_ratio))
+
+
+    def create_new_unit(self):
+        return self.base_unit
+
 
 
 # TODO: implement, duh
@@ -667,16 +669,7 @@ class Topography(TectonicDomain):
         self.value_map.apply_changes()
 
 
-    def get_sea_level_old(self, coverage):
-        # assuming coverage % of the world are covered in water, what is the corresponding sea level (i.e. the n-median)?
-        b = np.copy(self.value_map.coordinates)
-        a = b.reshape(-1)
-        a.sort()
-        sea_level = a[int(len(a) * coverage)]
-        return sea_level
-
-
-    def get_sea_level(self, base_water_factor=5):
+    def get_sea_level(self, base_water_factor=20):
         b = np.copy(self.value_map.coordinates)
         heights = b.reshape(-1)
         heights.sort()
@@ -693,8 +686,6 @@ class Topography(TectonicDomain):
             else:
                 index -= j            
         return heights[index]
-
-
 
 
     def expand_dimensions(self, factor):
@@ -728,26 +719,44 @@ class Geology(TectonicDomain):
         # https://www.youtube.com/@sprottedu2478/search?query=ore%20deposits
         # https://geologyscience.com/ore-minerals/copper-cu-ore/#Copper_Cu_Ore_Deposits
     def __init__(self, dimensions):
+        self.element_data = {"O":0.641, "Si":0.282, "Al":0.0823, "Fe":0.0563, "Ca":0.0415, "Na":0.0236, "Mg":0.0233, "K":0.0209}
+        #self.abundant_elements = ["O", "Si", "Al", "Fe", "Ca", "Na", "Mg", "K"]
+        #self.abundances = [0.641, 0.282, 0.0823, 0.0563, 0.0415, 0.0236, 0.0233, 0.0209]
+        self.abundant_elements = ["Si", "Al", "Fe", "Ca", "Na", "Mg", "K"]
+        self.abundances = [0.282, 0.0823, 0.0563, 0.0415, 0.0236, 0.0233, 0.0209]
+
         self.dimensions = dimensions
+        self.base_unit_size = 100
+        self.base_unit = {"felsic":0, "intermediate":0, "mafic":0, "ultramafic":0}
+        for i in range(self.base_unit_size):
+            rock_type = self.determine_rock_type()
+            self.base_unit[rock_type] += 1
+        self.value_map = UpdateDictMap(self.dimensions, self.base_unit)
         # TODO: model mafic vs felsic rocks (100 element representations in list, calculate the silica content) with random.choices
         # also model intrusive vs volcanic rock, point interactions could do this - erosion shifts a intrusive/extrusive ratio towards intrusive, newly formed formations shift it back
         # the ratio models the surface accessible rock type
     
     def determine_rock_type(self):
-        abundant_elements = {"O":0.641, "Si":0.282, "Al":0.0823, "Fe":0.0563, "Ca":0.0415, "Na":0.0236, "Mg":0.0233, "K":0.0209}
-        abundand_elements = ["O", "Si", "Al", "Fe", "Ca", "Na", "Mg", "K"]
-        abundances = [0.641, 0.282, 0.0823, 0.0563, 0.0415, 0.0236, 0.0233, 0.0209]
         magma_contents = {"O":0, "Si":0, "Al":0, "Fe":0, "Ca":0, "Na":0, "Mg":0, "K":0}
-        for i in range(1000):
-            magma_contents[random.choices(abundant_elements, weights=abundances)[0]] += 1
-        if magma_contents["O"] + magma_contents["Si"] >= 650:
+        element_units = random.choices(self.abundant_elements, weights=self.abundances, k=100)
+        for unit in element_units:
+            magma_contents[unit] += 1
+        
+        if magma_contents["O"] + magma_contents["Si"] >= 65:
             return "felsic"
-        elif magma_contents["O"] + magma_contents["Si"] >= 550:
+        elif magma_contents["O"] + magma_contents["Si"] >= 55:
             return "intermediate"
-        elif magma_contents["O"] + magma_contents["Si"] >= 450:
+        elif magma_contents["O"] + magma_contents["Si"] >= 45:
             return "mafic"
         else:
             return "ultramafic"
+
+
+    def create_new_unit(self):
+        unit = {"felsic":0, "intermediate":0, "mafic":0, "ultramafic":0}
+        rock_type = self.determine_rock_type()
+        unit[rock_type] += self.base_unit_size
+        return unit
 
     # types of copper deposits:
     #   - porphyry -> intrusive igneous rock + hot fluid (volcanism)
@@ -791,20 +800,23 @@ class Geology(TectonicDomain):
     #   -> porphyry and skarn are both hydrothermal, and both different
 
 
-    def apply_volcanism(self, x, y):
-        #TODO: for more variety in rock types (and thereby mineral occurrence), random percentages of elements in magma are possible, based on solar abundance
-        volcanism_potency = 3
-        self.value_map.increment_coordinate_value(x, y, self.get_transfer_unit(self.base_unit, volcanism_potency))
-
-
-    def transform_interaction(self, x1, y1, x2, y2, transfer_unit, ratio):
+    #def transform_interaction(self, x1, y1, x2, y2, transfer_unit, ratio):
         # TODO: creates gorges where intrusive rock becomes visible - strong shift in the intrusive/extrusive ratio
-        pass
+        #pass
 
 
     def get_transfer_unit(self, value, ratio):
-        pass
+        unit = copy.deepcopy(value)
+        for key in unit:
+            unit[key] = round(unit[key] * ratio, 2)
+        return unit
 
+
+    def get_single_attribute_value_map(self, attribute):
+        helper_map = ObjectMap(self.dimensions, 0.0)
+        for coordinate in self.value_map.get_all_coordinates():
+            helper_map.coordinates[coordinate[0],coordinate[1]] = self.value_map.coordinates[coordinate[0],coordinate[1]][attribute]
+        return helper_map.coordinates
 
     def apply_rock_cycle(self):
         pass
@@ -812,15 +824,16 @@ class Geology(TectonicDomain):
 
 class TectonicMovements:
 
-    def __init__(self, magma_currents:MagmaCurrentMap, tectonic_plates:TectonicPlates, topography:Topography):
+    def __init__(self, magma_currents:MagmaCurrentMap, tectonic_plates:TectonicPlates, topography:Topography, geology:Geology):
         self.currents = magma_currents
         self.plates = tectonic_plates
         self.topography = topography
+        self.geology = geology
         #self.geology = geology
         self.map_helper = ObjectMap(((0,1), (0,1)), 0)
         self.subduction_ratio = 0.1
         self.generate_plate_coordinate_lists()
-        self.volcanism_chance = 0.1
+        self.volcanism_chance = 0.2                 #experiment on this
         self.hotspots = []
         self.n_hotspots = 5
         self.hotspot_min_age = 50
@@ -917,12 +930,13 @@ class TectonicMovements:
     
     def point_interaction(self, x1, y1, x2, y2, interaction_type, ratio):
         self.topography.point_interaction(x1, y1, x2, y2, interaction_type, ratio)
-        #self.geology.point_interaction(x1, y1, x2, y2, interaction_type, ratio)
+        self.geology.point_interaction(x1, y1, x2, y2, interaction_type, ratio)
         # perform other interactions if necessary
 
 
     def apply_changes(self):
         self.topography.apply_changes()
+        self.geology.apply_changes()
         #self.geology.apply_changes()
         # perform this operation in other objects if needed
 
@@ -931,6 +945,8 @@ class TectonicMovements:
         #TODO: add hotspots as a means of encouragin inter-plate mountain ranges and peninsulae / island archipelagos
         if random.random() <= self.volcanism_chance:
             self.topography.apply_volcanism(x,y)
+            self.geology.apply_volcanism(x,y)
+
 
     # to avoid the scenario of plates running away from each other (and the 3 or more intersecting plate issue), only one plate is moving at a time
     def simulate_plate_movement(self):
