@@ -557,15 +557,17 @@ class MagmaCurrentMap:
 class TectonicDomain:
     subduction_ratio = 0.5
     fold_ratio = 0.5
+    volcanism_potency = 3
     def __init__(self, dimensions, base_unit):
         self.dimensions = dimensions
         self.base_unit = base_unit
+        self.cycle_ticker = 0
+        self.cycle_interval = 100
         self.value_map = UpdateMap(self.dimensions, base_unit)
     
 
     def apply_volcanism(self, x, y):
-        volcanism_potency = 3
-        self.value_map.increment_coordinate_value(x, y, self.get_transfer_unit(self.create_new_unit(), volcanism_potency))
+        self.value_map.increment_coordinate_value(x, y, self.get_transfer_unit(self.create_new_unit(), self.volcanism_potency))
 
 
     def get_transfer_unit(self, value, ratio):
@@ -639,6 +641,16 @@ class TectonicDomain:
     def create_new_unit(self):
         return self.base_unit
 
+    
+    def increment_cycle_ticker(self):
+        self.cycle_ticker += 1
+        if self.cycle_ticker % self.cycle_interval == 0:
+            self.cycle_action()
+
+
+    def cycle_action(self):
+        return
+
 
 
 # TODO: implement, duh
@@ -654,6 +666,7 @@ class Topography(TectonicDomain):
         self.dimensions = dimensions
         self.base_unit = base_height
         self.value_map = UpdateMap(self.dimensions, self.base_unit)
+        self.set_last_sea_level()
         
 
     def apply_volcanism(self, x, y):
@@ -688,6 +701,14 @@ class Topography(TectonicDomain):
         return heights[index]
 
 
+    def set_last_sea_level(self, base_water_factor=20):
+        self.last_sea_level = self.get_sea_level(base_water_factor=20)
+
+
+    def get_last_sea_level(self):
+        return self.last_sea_level
+
+
     def expand_dimensions(self, factor):
         self.value_map.dimension_expansion(factor)
     
@@ -698,6 +719,10 @@ class Topography(TectonicDomain):
 
     def expand_dimensions_transitional_gaussian(self, factor):
         self.value_map.transitional_gaussian_dimension_expansion(factor)
+
+    
+    def cycle_action(self):
+        self.set_last_sea_level()
 
 
 class Geology(TectonicDomain):
@@ -718,7 +743,9 @@ class Geology(TectonicDomain):
         # - copper veins form 2000m beneath the surface because of water precipitation, i.e. veins are only realistically accessible in mountains
         # https://www.youtube.com/@sprottedu2478/search?query=ore%20deposits
         # https://geologyscience.com/ore-minerals/copper-cu-ore/#Copper_Cu_Ore_Deposits
-    def __init__(self, dimensions):
+        # more info about rock types: https://opengeology.org/Mineralogy/6-igneous-rocks-and-silicate-minerals-v2/
+        # https://opengeology.org/Mineralogy/9-ore-deposits-and-economic-minerals/ -> clearer info about host rocks for ore deposits
+    def __init__(self, dimensions, base_unit_size):
         self.element_data = {"O":0.641, "Si":0.282, "Al":0.0823, "Fe":0.0563, "Ca":0.0415, "Na":0.0236, "Mg":0.0233, "K":0.0209}
         #self.abundant_elements = ["O", "Si", "Al", "Fe", "Ca", "Na", "Mg", "K"]
         #self.abundances = [0.641, 0.282, 0.0823, 0.0563, 0.0415, 0.0236, 0.0233, 0.0209]
@@ -726,18 +753,37 @@ class Geology(TectonicDomain):
         self.abundances = [0.282, 0.0823, 0.0563, 0.0415, 0.0236, 0.0233, 0.0209]
 
         self.dimensions = dimensions
-        self.base_unit_size = 100
-        self.base_unit = {"felsic":0, "intermediate":0, "mafic":0, "ultramafic":0, "igneous":0, "sedimentary":0, "metamorphic":0, "carbonate":0}
+        self.base_unit_size = base_unit_size
+        self.base_unit = {
+                            "felsic":0, 
+                            "intermediate":0, 
+                            "mafic":0, 
+                            "ultramafic":0, 
+                            "igneous":0, 
+                            "sedimentary":0, 
+                            "metamorphic":0, 
+                            "carbonate":0,
+                            "hydrothermal":0,
+                            "pegmatite":0,
+                            "kimberlite":0,
+                            "porphyry":0,
+                            "skarn":0,
+                            "VMS":0,
+                            "SEDEX":0,
+                            "MVT":0,
+                        }
         for i in range(self.base_unit_size):
             rock_type = self.determine_rock_type()
             self.base_unit[rock_type] += 1
+        self.sea_level = 0
         self.value_map = UpdateDictMap(self.dimensions, self.base_unit)
-        self.cycle_ticker = 0
-        self.cycle_interval = 100
         # TODO: model mafic vs felsic rocks (100 element representations in list, calculate the silica content) with random.choices
         # also model intrusive vs volcanic rock, point interactions could do this - erosion shifts a intrusive/extrusive ratio towards intrusive, newly formed formations shift it back
         # the ratio models the surface accessible rock type
     
+    def set_sea_level(self, sea_level):
+        self.sea_level = sea_level
+
     def determine_rock_type(self):
         magma_contents = {"O":0, "Si":0, "Al":0, "Fe":0, "Ca":0, "Na":0, "Mg":0, "K":0}
         element_units = random.choices(self.abundant_elements, weights=self.abundances, k=100)
@@ -754,52 +800,23 @@ class Geology(TectonicDomain):
             return "ultramafic"
 
 
+    def apply_volcanism(self, x, y):
+        rocks_before_volcanism = self.value_map.coordinates[x,y]
+        super().apply_volcanism(x,y)
+        rocks_after_volcanism = self.value_map.coordinates[x,y]
+        magmatic_deposition = {
+                                "kimberlite":rocks_after_volcanism["ultramafic"]-rocks_before_volcanism["ultramafic"], 
+                                "pegmatite":rocks_after_volcanism["felsic"]-rocks_before_volcanism["felsic"]
+                                }
+        self.value_map.increment_coordinate_value(x,y,magmatic_deposition)
+
+
+
     def create_new_unit(self):
         unit = {"felsic":0, "intermediate":0, "mafic":0, "ultramafic":0, "igneous":self.base_unit_size}
         rock_type = self.determine_rock_type()
         unit[rock_type] += self.base_unit_size
         return unit
-
-    # types of copper deposits:
-    #   - porphyry -> intrusive igneous rock + hot fluid (volcanism)
-    #   - VMS -> volcanism in the ocean (historically significant, associated with subduction zones)
-    #   . skarn -> intrusive igneous rock + carbonate sedimentary rock + volcanism (also contains all other base metals + precious metals, depending on host rock)
-    #   - hydrothermal -> volcanic activity + limestone/dolomite "and other rocks"
-    # malachite forms as oxidation of exposed copper from many of these different deposits, especially VMS since sulfides are likely to turn into malachite
-
-    # types of tin deposits:
-    #   - placer  -> adjacent to vein/lode deposit
-    #   - vein/lode  -> granitic rock + hydrothermal (volcanism)
-    #   - greisen -> granite intrusions + hydrothermal
-    #   - pegmatite -> igneos pegmatite rock (likely not relevant)
-    #   - skarn -> same as above
-
-    # types of lead deposits:
-    #   - skarn
-    #   - hydrothermal
-    #   - weathering/oxidation
-    #   - faults (tectonic) + hydrothermal / mineral rich fluids
-
-    # types of silver deposits:
-    #   - vein/lode -> calcite + hydrothermal
-    #   - hydrothermal
-    #   - porphyry -> intrusive igneous rock + volcanism, similar but not equal to skarn
-    #   - skarn
-    #   - placer / sedimentary -> adjacent to skarn
-
-    # types of gold deposits:
-    #   - vein/lode -> hydrothermal + quartz
-    #   - placer deposits (adjacent to hydrothermal quartz / skarn)
-    #   - skarn
-    #   NOTE: electrum is a naturally occurring alloy of silver and gold
-
-    # types of iron deposits:
-    #   - bog iron (irrelevant for geologly)
-    #   - BIF
-    #   - skarn
-
-    #   https://geologyscience.com/ore-genesis/hydrothermal-ore-minerals/
-    #   -> porphyry and skarn are both hydrothermal, and both different
 
 
     #def transform_interaction(self, x1, y1, x2, y2, transfer_unit, ratio):
@@ -845,18 +862,15 @@ class Geology(TectonicDomain):
     
 
     def add_carbonate(self, topography):
-        if self.cycle_ticker % self.cycle_interval != 0:
-            return
-        print("adding carbonate")
-        sea_level = topography.get_sea_level()
+        sea_level = self.topography.get_last_sea_level()
         for coordinate in self.value_map.get_all_coordinates():
             if topography.value_map.coordinates[coordinate[0],coordinate[1]] < sea_level:
                 self.value_map.increment_coordinate_value(coordinate[0], coordinate[1], {"carbonate":1, "sedimentary":1})
 
 
-    def increment_cycle_ticker(self):
-        self.cycle_ticker += 1
-
+    def cycle_action(self):
+        self.add_carbonate()
+        
 
 class TectonicMovements:
 
