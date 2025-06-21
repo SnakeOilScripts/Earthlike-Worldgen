@@ -665,63 +665,6 @@ class TectonicDomain:
         return
 
 
-
-# TODO: implement, duh
-class Topography(TectonicDomain):
-    # types of plate boundaries:
-    # - convergent (without subduction) -> fold mountains
-    # - convergent (with subduction) -> trench + mountains/volcanos
-    # - divergent -> mid-ocean ridge / rift valleys, volcanism
-    # - transform -> strike-slip-fault
-    # - volcanism
-    # https://www.geologyin.com/2014/03/types-of-continental-boundaries.html
-    def __init__(self, dimensions, base_height=100.0):
-        self.dimensions = dimensions
-        self.base_unit = base_height
-        self.value_map = UpdateMap(self.dimensions, self.base_unit)
-        
-
-    def apply_volcanism(self, x, y):
-        volcanism_potency = 3
-        self.value_map.increment_coordinate_value(x, y, self.base_unit * volcanism_potency)
-
-    
-    def get_height(self, x, y):
-        return self.value_map.get_coordinate_value(x, y)
-
-
-    def get_sea_level(self, base_water_factor=20):
-        b = np.copy(self.value_map.coordinates)
-        heights = b.reshape(-1)
-        heights.sort()
-        water_units = len(heights) * self.base_unit * base_water_factor
-        
-        j = int((len(heights)-1) / 2)
-        index = j
-        while j != 0:
-            f = lambda x,y: x-heights[index]+y
-            sum_of_differences = reduce(f, heights[:index]) - heights[index]
-            j = int(j/2)
-            if abs(sum_of_differences) <= abs(water_units):
-                index += j
-            else:
-                index -= j            
-        return heights[index]
-
-
-    def expand_dimensions(self, factor):
-        self.value_map.dimension_expansion(factor)
-    
-
-    def expand_dimensions_gaussian(self, factor):
-        self.value_map.gaussian_dimension_expansion(factor)
-
-
-    def expand_dimensions_transitional_gaussian(self, factor):
-        self.value_map.transitional_gaussian_dimension_expansion(factor)
-
-
-
 class Geology(TectonicDomain):
     # TODO: rock cycle: igneous -> sedimentary -> polymorphic (time-based)
         # igneous rocks occur at volcanism and divergent boundaries
