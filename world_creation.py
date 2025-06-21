@@ -26,7 +26,7 @@ class ObjectMap:
 
     def __init__(self, dimensions, base_object):
         self.dimensions = dimensions
-        self.base_object = base_object
+        self.base_object = copy.deepcopy(base_object)
         self.coordinates = self.create_coordinates(dimensions, base_object) 
 
 
@@ -164,7 +164,7 @@ class UpdateMap(ObjectMap):
     def __init__(self, dimensions, base_object):
         self.dimensions = dimensions
         self.update_dimensions = dimensions
-        self.base_object = base_object
+        self.base_object = copy.deepcopy(base_object)
         self.coordinates = self.create_coordinates(dimensions, base_object)
         self.coordinates_update = np.copy(self.coordinates)
 
@@ -204,15 +204,25 @@ class UpdateMap(ObjectMap):
             multiplier = self.get_coordinate_value(coordinate[0], coordinate[1])
             for x in range(expansion_factor*3):
                 for y in range(expansion_factor*3):
-                    self.increment_coordinate_value((coordinate[0]-1)*expansion_factor + x, (coordinate[1]-1)*expansion_factor + y, (dp_array[x,y]*multiplier) / 3) # division by 3 is necessary to counter tripling of value over time
+                    self.increment_gaussian_coordinate(coordinate, x, y, expansion_factor, dp_array, multiplier)
         self.apply_changes()
 
+
+    def increment_gaussian_coordinate(self, coordinate, x, y, expansion_factor, dp_array, value):
+        self.increment_coordinate_value((coordinate[0]-1)*expansion_factor + x, (coordinate[1]-1)*expansion_factor + y, (dp_array[x,y]*multiplier)/3) # division by 3 is necessary to counter tripling of value over time
 
 
 class UpdateDictMap(UpdateMap):
 
     def __init__(self, dimensions, base_object:dict):
         super().__init__(dimensions, base_object)
+        self.coordinates_update = copy.deepcopy(self.coordinates)
+
+
+    def apply_changes(self):
+        self.coordinates = self.coordinates_update
+        self.coordinates_update = copy.deepcopy(self.coordinates)
+        self.dimensions = self.update_dimensions
 
     
     def increment_coordinate_value(self, x, y, values):
@@ -221,6 +231,13 @@ class UpdateDictMap(UpdateMap):
                 self.coordinates_update[x,y][key] += values[key]
         else:
             return -1
+    
+
+    def increment_gaussian_coordinate(self, coordinate, x, y, expansion_factor, dp_array, value):
+        working_value = copy.deepcopy(value)
+        for key in working_value:
+            working_value[key] = (dp_array[x,y] * working_value[key]) / 3
+        self.increment_coordinate_value((coordinate[0]-1)*expansion_factor + x, (coordinate[1]-1)*expansion_factor + y, working_value)
 
 
 class SetMap(ObjectMap):
@@ -532,8 +549,8 @@ class TectonicPlates:
 # TODO: double-check that this works with the new ObjectMap class
 class MagmaCurrentMap:
     # suction from subduction seems to be the strongest factor for plate movement, while magma currents explain the megacontinent-cycle
-    def __init__(self, dimensions, base_surface:ObjectMap):
-        self.surface_map = base_surface
+    def __init__(self, dimensions, base_surface):
+        self.surface = base_surface
         self.dimensions = dimensions
 
 
@@ -541,28 +558,24 @@ class MagmaCurrentMap:
         vector_map = VectorMap(self.dimensions)
         for x in range(self.dimensions[0][0], self.dimensions[0][1]):
             for y in range(self.dimensions[1][0], self.dimensions[1][1]):
-                neighbors = self.surface_map.get_adjacent_coordinates_within_dimensions(x, y)
-                neighbors.sort(key=lambda param: self.surface_map.get_coordinate_value(param[0],param[1]))
-                if self.surface_map.get_coordinate_value(neighbors[0][0], neighbors[0][1]) < self.surface_map.get_coordinate_value(x,y):
+                neighbors = self.surface.value_map.get_adjacent_coordinates_within_dimensions(x, y)
+                neighbors.sort(key=lambda param: self.surface.get_height(param[0],param[1]))
+                if self.surface.get_height(neighbors[0][0], neighbors[0][1]) < self.surface.get_height(x,y):
                     vector_map.set_coordinate_value(x, y, (neighbors[0][0] - x, neighbors[0][1] - y))
                 else:
                     vector_map.set_coordinate_value(x, y, (0,0))
         return vector_map
 
 
-    def update_surface_map(self, new_map:ObjectMap):
-        self.surface_map = copy.deepcopy(new_map)
-
-
 class TectonicDomain:
     subduction_ratio = 0.5
     fold_ratio = 0.5
     volcanism_potency = 3
+    cycle_ticker = 0
+    cycle_interval = 100
     def __init__(self, dimensions, base_unit):
         self.dimensions = dimensions
         self.base_unit = base_unit
-        self.cycle_ticker = 0
-        self.cycle_interval = 100
         self.value_map = UpdateMap(self.dimensions, base_unit)
     
 
@@ -666,7 +679,6 @@ class Topography(TectonicDomain):
         self.dimensions = dimensions
         self.base_unit = base_height
         self.value_map = UpdateMap(self.dimensions, self.base_unit)
-        self.set_last_sea_level()
         
 
     def apply_volcanism(self, x, y):
@@ -676,10 +688,6 @@ class Topography(TectonicDomain):
     
     def get_height(self, x, y):
         return self.value_map.get_coordinate_value(x, y)
-
-
-    def apply_changes(self):
-        self.value_map.apply_changes()
 
 
     def get_sea_level(self, base_water_factor=20):
@@ -701,14 +709,6 @@ class Topography(TectonicDomain):
         return heights[index]
 
 
-    def set_last_sea_level(self, base_water_factor=20):
-        self.last_sea_level = self.get_sea_level(base_water_factor=20)
-
-
-    def get_last_sea_level(self):
-        return self.last_sea_level
-
-
     def expand_dimensions(self, factor):
         self.value_map.dimension_expansion(factor)
     
@@ -720,9 +720,6 @@ class Topography(TectonicDomain):
     def expand_dimensions_transitional_gaussian(self, factor):
         self.value_map.transitional_gaussian_dimension_expansion(factor)
 
-    
-    def cycle_action(self):
-        self.set_last_sea_level()
 
 
 class Geology(TectonicDomain):
@@ -745,7 +742,7 @@ class Geology(TectonicDomain):
         # https://geologyscience.com/ore-minerals/copper-cu-ore/#Copper_Cu_Ore_Deposits
         # more info about rock types: https://opengeology.org/Mineralogy/6-igneous-rocks-and-silicate-minerals-v2/
         # https://opengeology.org/Mineralogy/9-ore-deposits-and-economic-minerals/ -> clearer info about host rocks for ore deposits
-    def __init__(self, dimensions, base_unit_size):
+    def __init__(self, dimensions, base_unit_size=100.0):
         self.element_data = {"O":0.641, "Si":0.282, "Al":0.0823, "Fe":0.0563, "Ca":0.0415, "Na":0.0236, "Mg":0.0233, "K":0.0209}
         #self.abundant_elements = ["O", "Si", "Al", "Fe", "Ca", "Na", "Mg", "K"]
         #self.abundances = [0.641, 0.282, 0.0823, 0.0563, 0.0415, 0.0236, 0.0233, 0.0209]
@@ -754,7 +751,7 @@ class Geology(TectonicDomain):
 
         self.dimensions = dimensions
         self.base_unit_size = base_unit_size
-        self.base_unit = {
+        self.base_unit_blueprint = {
                             "felsic":0, 
                             "intermediate":0, 
                             "mafic":0, 
@@ -763,7 +760,6 @@ class Geology(TectonicDomain):
                             "sedimentary":0, 
                             "metamorphic":0, 
                             "carbonate":0,
-                            "hydrothermal":0,
                             "pegmatite":0,
                             "kimberlite":0,
                             "porphyry":0,
@@ -772,17 +768,17 @@ class Geology(TectonicDomain):
                             "SEDEX":0,
                             "MVT":0,
                         }
-        for i in range(self.base_unit_size):
-            rock_type = self.determine_rock_type()
-            self.base_unit[rock_type] += 1
-        self.sea_level = 0
+        self.base_unit = copy.deepcopy(self.base_unit_blueprint)
+        #for i in range(int(self.base_unit_size)):
+        #    rock_type = self.determine_rock_type()
+        #    self.base_unit[rock_type] += 1
+        self.base_unit["igneous"] = self.base_unit_size
+        self.base_unit["mafic"] = self.base_unit_size
+        self.last_sea_level = 0
         self.value_map = UpdateDictMap(self.dimensions, self.base_unit)
         # TODO: model mafic vs felsic rocks (100 element representations in list, calculate the silica content) with random.choices
         # also model intrusive vs volcanic rock, point interactions could do this - erosion shifts a intrusive/extrusive ratio towards intrusive, newly formed formations shift it back
         # the ratio models the surface accessible rock type
-    
-    def set_sea_level(self, sea_level):
-        self.sea_level = sea_level
 
     def determine_rock_type(self):
         magma_contents = {"O":0, "Si":0, "Al":0, "Fe":0, "Ca":0, "Na":0, "Mg":0, "K":0}
@@ -804,16 +800,32 @@ class Geology(TectonicDomain):
         rocks_before_volcanism = self.value_map.coordinates[x,y]
         super().apply_volcanism(x,y)
         rocks_after_volcanism = self.value_map.coordinates[x,y]
+        
+
+
+    def magmatic_deposition(self, x, y, rocks_before, rocks_after):
         magmatic_deposition = {
                                 "kimberlite":rocks_after_volcanism["ultramafic"]-rocks_before_volcanism["ultramafic"], 
                                 "pegmatite":rocks_after_volcanism["felsic"]-rocks_before_volcanism["felsic"]
                                 }
         self.value_map.increment_coordinate_value(x,y,magmatic_deposition)
+    
 
+    def hydrothermal_deposition(self, x, y):
+        coordinate_value = self.value_map.get_coordinate_value(x,y)
+        rocks_total = self.get_height(x,y)
+        if self.get_height(x,y) > self.last_sea_level:
+            porphyry = self.base_unit_size * ((coordinate_value["felsic"] + coordinate_value["intermediate"]) / rocks_total)
+            skarn = self.base_unit_size * (coordinate_value["carbonate"] / rocks_total)
+        else:
+            vms = self.base_unit_size * ((coordinate_value["igneous"] + coordinate_value["metamorphic"]) / rocks_total)
+            sedex = self.base_unit_size * (coordinate_value["sedimentary"] / rocks_total)
+        self.value_map.increment_coordinate_value(x,y,{"porphyry":porphyry, "skarn":skarn, "VMS":vms, "SEDEX":sedex})
 
 
     def create_new_unit(self):
-        unit = {"felsic":0, "intermediate":0, "mafic":0, "ultramafic":0, "igneous":self.base_unit_size}
+        unit = copy.deepcopy(self.base_unit_blueprint)
+        unit["igneous"] = self.base_unit_size
         rock_type = self.determine_rock_type()
         unit[rock_type] += self.base_unit_size
         return unit
@@ -822,8 +834,6 @@ class Geology(TectonicDomain):
     #def transform_interaction(self, x1, y1, x2, y2, transfer_unit, ratio):
         # TODO: creates gorges where intrusive rock becomes visible - strong shift in the intrusive/extrusive ratio
         #pass
-
-
     def get_transfer_unit(self, value, ratio):
         unit = copy.deepcopy(value)
         for key in unit:
@@ -846,9 +856,6 @@ class Geology(TectonicDomain):
 
 
     def apply_rock_cycle(self):
-        if self.cycle_ticker % self.cycle_interval != 0:
-            return
-        print("applying rock cycle")
         for coordinate in self.value_map.get_all_coordinates():
             # simplified and based on guess-work: if igneous rock dominates, turn into sediment, if sediment dominates, 
             # turn into metamorphic, if metamorphic dominates, turn into igneous, cycle
@@ -861,25 +868,72 @@ class Geology(TectonicDomain):
                 self.value_map.increment_coordinate_value(coordinate[0], coordinate[1], {"metamorphic":-1*self.base_unit_size, "igneous":self.base_unit_size})
     
 
-    def add_carbonate(self, topography):
-        sea_level = self.topography.get_last_sea_level()
+    def add_carbonate(self):
         for coordinate in self.value_map.get_all_coordinates():
-            if topography.value_map.coordinates[coordinate[0],coordinate[1]] < sea_level:
+            if self.get_height(coordinate[0], coordinate[1]) < self.last_sea_level:
                 self.value_map.increment_coordinate_value(coordinate[0], coordinate[1], {"carbonate":1, "sedimentary":1})
 
 
     def cycle_action(self):
+        self.last_sea_level = self.get_sea_level()
         self.add_carbonate()
+        self.apply_rock_cycle()
+
+
+    def generate_topography(self):
+        heights = ObjectMap(self.dimensions, 0.0)
+        for coordinate in self.value_map.get_all_coordinates():
+            coordinate_value = self.value_map.coordinates[coordinate[0], coordinate[1]]
+            heights.coordinates[coordinate[0],coordinate[1]] = self.get_height(coordinate[0], coordinate[1])
+        return heights.coordinates
+
+    
+    def get_sea_level(self, base_water_factor=20):
+        topography = self.generate_topography()
+        b = np.copy(topography)
+        heights = b.reshape(-1)
+        heights.sort()
+        water_units = len(heights) * self.base_unit_size * base_water_factor
+        j = int((len(heights)-1) / 2)
+        index = j
+        while j != 0:
+            f = lambda x,y: x-heights[index]+y
+            sum_of_differences = reduce(f, heights[:index]) - heights[index]
+            j = int(j/2)
+            if abs(sum_of_differences) <= abs(water_units):
+                index += j
+            else:
+                index -= j            
+        return heights[index]
+
+    
+    def get_height(self, x, y):
+        coordinate_value = self.value_map.get_coordinate_value(x,y)
+        return coordinate_value["igneous"] + coordinate_value["metamorphic"] + coordinate_value["sedimentary"]
+
+    
+    def expand_dimensions(self, factor):
+        self.value_map.dimension_expansion(factor)
+        self.dimensions = self.value_map.dimensions
+    
+
+    def expand_dimensions_gaussian(self, factor):
+        self.value_map.gaussian_dimension_expansion(factor)
+        self.dimensions = self.value_map.dimensions
+
+
+    def expand_dimensions_transitional_gaussian(self, factor):
+        self.value_map.transitional_gaussian_dimension_expansion(factor)
+        self.dimensions = self.value_map.dimensions
         
+
 
 class TectonicMovements:
 
-    def __init__(self, magma_currents:MagmaCurrentMap, tectonic_plates:TectonicPlates, topography:Topography, geology:Geology):
+    def __init__(self, magma_currents:MagmaCurrentMap, tectonic_plates:TectonicPlates, geology:Geology):
         self.currents = magma_currents
         self.plates = tectonic_plates
-        self.topography = topography
         self.geology = geology
-        #self.geology = geology
         self.map_helper = ObjectMap(((0,1), (0,1)), 0)
         self.subduction_ratio = 0.1
         self.generate_plate_coordinate_lists()
@@ -892,8 +946,8 @@ class TectonicMovements:
 
     def generate_hotspot(self, min_age, max_age):
         return {
-                "x":random.randint(self.topography.dimensions[0][0], self.topography.dimensions[0][1]),
-                "y":random.randint(self.topography.dimensions[1][0], self.topography.dimensions[1][1]),
+                "x":random.randint(self.geology.dimensions[0][0], self.geology.dimensions[0][1]-1),
+                "y":random.randint(self.geology.dimensions[1][0], self.geology.dimensions[1][1]-1),
                 "lifespan":random.randint(min_age, max_age)
         }
 
@@ -971,7 +1025,7 @@ class TectonicMovements:
                 return 'transfer'
         else:
             # plate-2-plate interaction
-            if self.topography.get_height(x1, y1) <= self.topography.get_height(x2, y2) * self.subduction_ratio:
+            if self.geology.get_height(x1, y1) <= self.geology.get_height(x2, y2) * self.subduction_ratio:
                 return 'subduction'
             else:
                 return 'convergent'
@@ -979,13 +1033,11 @@ class TectonicMovements:
 
     
     def point_interaction(self, x1, y1, x2, y2, interaction_type, ratio):
-        self.topography.point_interaction(x1, y1, x2, y2, interaction_type, ratio)
         self.geology.point_interaction(x1, y1, x2, y2, interaction_type, ratio)
         # perform other interactions if necessary
 
 
     def apply_changes(self):
-        self.topography.apply_changes()
         self.geology.apply_changes()
         #self.geology.apply_changes()
         # perform this operation in other objects if needed
@@ -994,7 +1046,6 @@ class TectonicMovements:
     def apply_volcanism(self, x, y):
         #TODO: add hotspots as a means of encouragin inter-plate mountain ranges and peninsulae / island archipelagos
         if random.random() <= self.volcanism_chance:
-            self.topography.apply_volcanism(x,y)
             self.geology.apply_volcanism(x,y)
 
 
@@ -1005,8 +1056,6 @@ class TectonicMovements:
         vector_map = self.currents.generate_magma_current_vectors()
         vector = self.plates.get_plate_direction(plate_id, vector_map)
         self.apply_vector_to_plate(vector, plate_id)
-        self.geology.apply_rock_cycle()
-        self.geology.add_carbonate(self.topography)
         self.geology.increment_cycle_ticker()
         self.apply_hotspots()
         self.manage_hotspots()
