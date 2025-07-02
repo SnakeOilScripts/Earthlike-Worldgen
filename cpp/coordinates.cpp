@@ -2,9 +2,30 @@
 #include <vector>
 #include <cmath>
 
+// redefining operators makes addition of coordinates and other classes possible
 struct coordinate {
     int x;
     int y;
+    friend coordinate operator+(coordinate a, const coordinate& b) {
+        a.x += b.x;
+        a.y += b.y;
+        return a;
+    }
+    friend coordinate operator-(coordinate a, const coordinate& b) {
+        a.x -= b.x;
+        a.y -= b.y;
+        return a;
+    }
+    coordinate& operator+=(const coordinate& a) {
+        x += a.x;
+        y += a.y;
+        return *this;
+    }
+    coordinate& operator-=(const coordinate& a) {
+        x -= a.x;
+        y -= a.y;
+        return *this;
+    }
 };
 
 namespace world_base {
@@ -151,14 +172,32 @@ class ObjectMap {
 
 };
 
+template <typename T>
+class UpdateMap {
+    private:
+        ObjectMap<T> map;
+        ObjectMap<T> update;
+    public:
+        coordinate dimensions;
+        coordinate update_dimensions;
+
+        UpdateMap(coordinate d, T base_object) {
+            dimensions = d;
+            update_dimensions = d;
+            map = ObjectMap(d, base_object);
+            update = ObjectMap(d, base_object);
+        }
+
+        // requires the base_object to have a + and += operator defined!!! especially for new structs
+        int increment_coordinate_value() {
+
+        }
+
+};
+
 }
 
+
 int main() {
-    coordinate dimensions = {2,2};
-    world_base::ObjectMap<int> m1(dimensions, 0);
-    int value;
-    m1.set_coordinate_value({0,1}, 2);
-    m1.get_coordinate_value({0,1}, &value);
-    std::cout << value << "\n";
-    return 0;
+
 }
