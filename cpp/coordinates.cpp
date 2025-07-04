@@ -1,6 +1,8 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <set>
+#include <algorithm>
 
 // redefining operators makes addition of coordinates and other classes possible
 struct coordinate {
@@ -28,6 +30,10 @@ struct coordinate {
     }
 };
 
+void print_coordinate(coordinate c) {
+    std::cout << "\t{" << c.x << "," << c.y << "}\n";
+}
+
 namespace world_base {
 
 template <typename T>
@@ -38,6 +44,10 @@ class ObjectMap {
     public:
         std::vector<std::vector<T>> map;
         
+        ObjectMap() {
+            
+        }
+
         ObjectMap (coordinate d, T base_object) {
             dimensions = d;
             map = create_coordinates(dimensions, base_object);
@@ -80,14 +90,16 @@ class ObjectMap {
         }
 
 
-        std::vector<coordinate> get_adjacent_coordinates(coordinate p, bool dimension_constrained, bool stay_nondiagonal) {
+        std::vector<coordinate> get_adjacent_coordinates(coordinate p, bool within_dimensions=false, bool nondiagonal=false) {
             std::vector<coordinate> v;
             for (int x=p.x-1; x<=p.x+1; x++) {
                 for (int y=p.y-1; y<=p.y+1; y++) {
                     coordinate c = {x,y};
-                    if (dimension_constrained && coordinate_outside_dimensions(c))
+                    if (within_dimensions && coordinate_outside_dimensions(c))
                         continue;
-                    if (stay_nondiagonal && (x != p.x && y != p.y))
+                    if (nondiagonal && (x != p.x && y != p.y))
+                        continue;
+                    if (x == 0 && y == 0)
                         continue;
                     v.push_back(c);
                 }
@@ -96,12 +108,8 @@ class ObjectMap {
         }
 
         // putting it into a pointer to allow for error codes
-        int get_coordinate_value(coordinate p, T *container) {
-            if (coordinate_outside_dimensions(p) == true) {
-                return -1;
-            }
-            *container = map.at(p.x).at(p.y);
-            return 0;
+        T get_coordinate_value(coordinate p) {
+            return map.at(p.x).at(p.y);
         }
 
 
@@ -184,20 +192,119 @@ class UpdateMap {
         UpdateMap(coordinate d, T base_object) {
             dimensions = d;
             update_dimensions = d;
-            map = ObjectMap(d, base_object);
-            update = ObjectMap(d, base_object);
+            map = create_map(d, base_object);
+            update = create_map(d, base_object);
+        }
+
+
+        ObjectMap<T> create_map(coordinate d, T base_object) {
+            ObjectMap<T> m(d, base_object);
+            return m;
         }
 
         // requires the base_object to have a + and += operator defined!!! especially for new structs
-        int increment_coordinate_value() {
+        void increment_coordinate_value(coordinate c, T value) {
+            T inc;
+            if (!update.coordinate_outside_dimensions(c)) {
+                inc = update.get_coordinate_value(c);
+                update.set_coordinate_value(c, inc + value);
+            }
+        }
 
+        void apply_changes() {
+            map = update;
+            dimensions = update_dimensions;
+        }
+
+        T get_coordinate_value(coordinate c) {
+            return map.get_coordinate_value(c);
         }
 
 };
 
-}
+
+class SetMap: ObjectMap<std::set<int>> {
+    public:
+
+        using ObjectMap::ObjectMap;
+
+
+        int add_coordinate_value(coordinate c, int value) {
+            if (coordinate_outside_dimensions(c))
+                return -1;
+            map.at(c.x).at(c.y).insert(value);
+            return 0;
+        }
+
+
+        int update_coordinate_value(coordinate c, std::set<int> value) {
+            if (coordinate_outside_dimensions(c))
+                return -1;
+            map.at(c.x).at(c.y).merge(value);
+            return 0;
+        }
+
+
+        int remove_coordinate_value(coordinate c, int value) {
+            if (coordinate_outside_dimensions(c))
+                return -1;
+            map.at(c.x).at(c.y).erase(value);
+            return 0;
+        }
+
+        
+        std::vector<coordinate> get_neighbors_containing_value(coordinate c, int value) {
+            std::vector<coordinate> v;
+            std::vector<coordinate> ret;
+            if (coordinate_outside_dimensions(c))
+                return ret;
+            v = get_adjacent_coordinates(c, true);
+            std::cout<<"___\n";
+            for (auto it = v.begin(); it != v.end(); ++it) {
+                std::set<int> current_set = map.at((*it).x).at((*it).y);
+                if (current_set.find(value) != current_set.end())
+                    ret.push_back(*it);
+            }
+            return ret;
+        }
+
+
+        std::vector<coordinate> get_all_coordinates_containing_value(int value) {
+            std::vector<coordinate> ret;
+            std::vector<coordinate> all;
+
+            all = get_all_coordinates();
+            for (auto element: all) {
+                std::set<int> current_set = map.at(element.x).at(element.y);
+                if (current_set.find(value) != current_set.end())
+                    ret.push_back(element);
+            }
+            return ret;
+        }
+        
+
+};
+
+
+
+} // end of namespace world_base
 
 
 int main() {
+    std::set<int> empty;
+    world_base::SetMap smap({2,2}, empty);
 
+    std::set<int> s1{3,4};
+
+    smap.add_coordinate_value({0,0}, 1);
+    smap.update_coordinate_value({0,1}, s1);
+    smap.add_coordinate_value({1,0}, 1);
+    smap.update_coordinate_value({1,1}, s1);
+
+    std::vector<coordinate> v1 = smap.get_neighbors_containing_value({0,0}, 2);
+    for (auto e: v1) {
+        print_coordinate(e);
+    }
+
+    return 0;
 }

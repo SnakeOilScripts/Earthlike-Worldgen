@@ -3,4 +3,4 @@ __pycache__/*
 *.txt
 *.pickle
 plots/*
-*a.out
+**a.out
