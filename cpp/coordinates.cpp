@@ -4,6 +4,10 @@
 #include <set>
 #include <algorithm>
 
+
+
+namespace world_base {
+
 // redefining operators makes addition of coordinates and other classes possible
 struct coordinate {
     int x;
@@ -28,13 +32,18 @@ struct coordinate {
         y -= a.y;
         return *this;
     }
+    bool operator==(const coordinate& a) {
+        return (x == a.x && y ==  a.y);
+    }
+    friend bool operator<(coordinate a, const coordinate& b) {
+        return (a.x+a.y < b.x+b.y);
+    }
+    
 };
 
 void print_coordinate(coordinate c) {
     std::cout << "\t{" << c.x << "," << c.y << "}\n";
 }
-
-namespace world_base {
 
 template <typename T>
 class ObjectMap {
@@ -223,7 +232,7 @@ class UpdateMap {
 };
 
 
-class SetMap: ObjectMap<std::set<int>> {
+class SetMap: public ObjectMap<std::set<int>> {
     public:
 
         using ObjectMap::ObjectMap;
@@ -288,23 +297,3 @@ class SetMap: ObjectMap<std::set<int>> {
 
 
 } // end of namespace world_base
-
-
-int main() {
-    std::set<int> empty;
-    world_base::SetMap smap({2,2}, empty);
-
-    std::set<int> s1{3,4};
-
-    smap.add_coordinate_value({0,0}, 1);
-    smap.update_coordinate_value({0,1}, s1);
-    smap.add_coordinate_value({1,0}, 1);
-    smap.update_coordinate_value({1,1}, s1);
-
-    std::vector<coordinate> v1 = smap.get_neighbors_containing_value({0,0}, 2);
-    for (auto e: v1) {
-        print_coordinate(e);
-    }
-
-    return 0;
-}
