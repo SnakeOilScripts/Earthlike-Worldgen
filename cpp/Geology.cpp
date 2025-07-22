@@ -7,10 +7,9 @@ namespace world_base {
     }
 
 
-    Geology::Geology(coordinate d, float base_unit_size=100.0) {
+    Geology::Geology(coordinate d, float base_unit_size) {
         abundances = {0.282, 0.0823, 0.0563, 0.0415, 0.0236, 0.0233, 0.0209};
         dimensions = d;
-        std::string initial_rock = determine_rock_type();
         geodat base_unit = create_new_unit();
         last_sea_level = 0;
         value_map = UpdateMap(dimensions, base_unit);
@@ -21,11 +20,12 @@ namespace world_base {
         std::random_device random_device;
         std::mt19937 generator(random_device());
         //0-1:Si 1-2:Al 2-3:Fe 3-4:Ca 4-5:Na 5-6:Mg 6-7:K
-        std::array<double,8> {0,1,2,3,4,5,6,7};
+        std::array<double,8> intervals{0,1,2,3,4,5,6,7};
+        std::piecewise_constant_distribution<double> distribution(intervals.begin(),intervals.end(),abundances.begin());
         int magma_contents[100] = {};
         for (int i=0; i<100; i++) {
             int element = distribution(generator);
-            ++magma_contents[roll];
+            ++magma_contents[element];
         }
         if (magma_contents[0] >= 65)
             return "felsic";
@@ -46,11 +46,12 @@ namespace world_base {
 
     geodat Geology::create_new_unit() {
         geodat unit = {};
-        if (initial_rock.compare("felsic") == 0)
+        std::string rock_type = determine_rock_type();
+        if (rock_type.compare("felsic") == 0)
             unit.felsic += base_unit_size;
-        else if (initial_rock.compare("intermediate") == 0)
+        else if (rock_type.compare("intermediate") == 0)
             unit.intermediate += base_unit_size;
-        else if (initial_rock.compare("mafic") == 0)
+        else if (rock_type.compare("mafic") == 0)
             unit.mafic += base_unit_size;
         else
             unit.ultramafic += base_unit_size;
@@ -96,7 +97,7 @@ namespace world_base {
     void Geology::subduction_interaction(coordinate from, coordinate to, geodat transfer_unit) {
         value_map.increment_coordinate_value(from, get_transfer_unit(transfer_unit, -1.0 - subduction_ratio));
         value_map.increment_coordinate_value(to, get_transfer_unit(transfer_unit, subduction_ratio));
-        geodat metamorhpic_transfer = {};
+        geodat metamorphic_transfer = {};
         metamorphic_transfer.sedimentary = -1*transfer_unit.sedimentary;
         metamorphic_transfer.metamorphic = transfer_unit.sedimentary;
         value_map.increment_coordinate_value(to, get_transfer_unit(metamorphic_transfer, subduction_ratio));
@@ -104,19 +105,19 @@ namespace world_base {
 
 
     void Geology::apply_rock_cycle() {
-        std::vector<coordinates> all = value_map.get_all_coordinates();
+        std::vector<coordinate> all = value_map.get_all_coordinates();
         geodat value, cycle;
         for (auto it=all.begin(); it!=all.end(); it++) {
             value = value_map.get_coordinate_value(*it);
             if (value.igneous >= value.sedimentary && value.igneous >= value.metamorphic) {
                 cycle = {};
-                cylce.igneous = -1 * std::min(base_unit_size, cycle.igneous);
-                cylce.sedimentary = std::min(base_unit_size, cycle.igneous);
+                cycle.igneous = -1 * std::min(base_unit_size, cycle.igneous);
+                cycle.sedimentary = std::min(base_unit_size, cycle.igneous);
                 value_map.increment_coordinate_value(*it, cycle);
             } else if (value.sedimentary > value.igneous && value.sedimentary >= value.metamorphic ) {
-                cylce = {};
+                cycle = {};
                 cycle.sedimentary = -1 * std::min(base_unit_size, cycle.sedimentary);
-                cylce.metamorphic = std::min(base_unit_size, cycle.sedimentary);
+                cycle.metamorphic = std::min(base_unit_size, cycle.sedimentary);
                 value_map.increment_coordinate_value(*it, cycle);
             } else {
                 cycle = {};
@@ -157,13 +158,13 @@ namespace world_base {
         
         std::sort(all_heights.begin(), all_heights.end(), [](float a, float b){return a<b;});
         float water_units = all_heights.size() * base_unit_size * base_water_factor;
-        j = static_cast<int>((heights.size()-1)/2);
+        j = static_cast<int>((all_heights.size()-1)/2);
         i = j;
         while (j != 0) {
             sum_of_differences = 0;
             for (int z=0; z<i; z++)
                 sum_of_differences += all_heights.at(i) - all_heights.at(z);
-            j = static_cast<int>(j/2)
+            j = static_cast<int>(j/2);
             if (sum_of_differences <= water_units)
                 i += j;
             else

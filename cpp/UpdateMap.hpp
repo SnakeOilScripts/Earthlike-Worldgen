@@ -1,4 +1,5 @@
 #include <vector>
+#include <cmath>
 #include "ObjectMap.hpp"
 
 #ifndef _UPDATEMAP_H_
@@ -20,6 +21,9 @@ namespace world_base {
             // requires the base_object to have a + and += operator defined!!! especially for new structs
             void increment_coordinate_value(coordinate c, T value);
             void apply_changes();
+            float normal_pdf(float x, float mean, float standard_deviation);
+            void transitional_gaussian_dimensions_expansion(int expansion_factor, T base_object);
+            void increment_gaussian_coordinate(coordinate c, int x, int y, int expansion_factor, std::vector<std::vector<float>> *dp, float value);
 };
 
 }

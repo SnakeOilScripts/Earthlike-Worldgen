@@ -30,7 +30,7 @@ namespace world_base {
         float sedex;
         float mvt;
 
-        friend geodat operator+(geodat a, const geodat& a) {
+        friend geodat operator+(geodat a, const geodat& b) {
             a.felsic += b.felsic;
             a.intermediate += b.intermediate;
             a.mafic += b.mafic;
@@ -59,7 +59,7 @@ namespace world_base {
             a.intermediate *= factor;
             a.mafic *= factor;
             a.ultramafic *= factor;
-            a.igenous *= factor;
+            a.igneous *= factor;
             a.sedimentary *= factor;
             a.metamorphic *= factor;
             a.carbonate *= factor;
@@ -74,7 +74,6 @@ namespace world_base {
 
     class Geology: public TectonicDomain<geodat> {
         protected:
-            std::vector<float> abundances;
             float last_sea_level;
             float base_unit_size;
             std::vector<std::string> abundant_elements;
@@ -87,7 +86,7 @@ namespace world_base {
             void magmatic_deposition(coordinate c, geodat before, geodat after);
             void hydrothermal_deposition(coordinate c);
             geodat create_new_unit();
-            geodat get_transfer_unit();
+            geodat get_transfer_unit(geodat value, float ratio);
             void subduction_interaction(coordinate from, coordinate to, geodat transfer_unit);
             void apply_rock_cycle();
             void add_carbonate();
@@ -96,9 +95,7 @@ namespace world_base {
             float get_sea_level(float base_water_factor=20);
             float get_height(coordinate c);
             void expand_dimensions_transitional_gaussian(int factor);
-    }
-
-
+    };
 }
 
 #endif

@@ -13,6 +13,8 @@
 #include "TectonicPlates.cpp"
 #include "TectonicDomain.hpp"
 #include "TectonicDomain.cpp"
+#include "Geology.hpp"
+#include "Geology.cpp"
 
 int main() {
     world_base::ObjectMap<int> m({2,2},0);
