@@ -12,7 +12,7 @@ namespace world_base {
     
     class TectonicPlates {
         
-        private:
+        protected:
             coordinate dimensions;
             SetMap plate_map;
             int plate_id;

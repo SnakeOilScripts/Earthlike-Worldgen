@@ -11,12 +11,11 @@ namespace world_base {
 
     template <typename T>
     class ObjectMap {
-        private:
+        protected:
             //simplifying dimensions by leaving (0,0) implicit
             coordinate dimensions;
-        public:
             std::vector<std::vector<T>> map;
-            
+        public:
             ObjectMap();
             ObjectMap (coordinate d, T base_object);
             std::vector<std::vector<T>> create_coordinates(coordinate dimensions, T base_object);

@@ -11,6 +11,8 @@
 #include "TectonicSplits.cpp"
 #include "TectonicPlates.hpp"
 #include "TectonicPlates.cpp"
+#include "TectonicDomain.hpp"
+#include "TectonicDomain.cpp"
 
 int main() {
     world_base::ObjectMap<int> m({2,2},0);

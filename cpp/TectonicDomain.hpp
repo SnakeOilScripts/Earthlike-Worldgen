@@ -10,11 +10,11 @@ namespace world_base {
 
     template <typename T>
     class TectonicDomain {
-        private:
+        protected:
             float subduction_ratio = 0.5;
             float fold_ratio = 0.5;
             int volcanism_potency = 3;
-            int cylce_ticker = 0;
+            int cycle_ticker = 0;
             int cycle_interval = 100;
             UpdateMap<T> value_map;
             T base_unit;
@@ -39,7 +39,7 @@ namespace world_base {
             //placeholders meant to be overwritten by child class
             fvector generate_magma_current_vector(std::vector<coordinate> *plate);
             float get_height(coordinate c);
-    }
+    };
 
 }
 

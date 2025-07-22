@@ -149,6 +149,6 @@ namespace world_base {
 
     template <typename T>
     float TectonicDomain<T>::get_height(coordinate c) {
-        return {0,0};
+        return 0.0;
     }
 }
