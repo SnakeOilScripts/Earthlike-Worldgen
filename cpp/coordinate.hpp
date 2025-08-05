@@ -67,5 +67,11 @@ struct fvector {
     }
     
 };
+
+    fvector ctofv(coordinate c) {
+        fvector v{static_cast<float>(c.x), static_cast<float>(c.y)};
+        return v;
+    }
+
 }
 #endif

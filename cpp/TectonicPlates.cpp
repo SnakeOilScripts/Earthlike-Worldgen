@@ -6,6 +6,8 @@ namespace world_base {
         dimensions = d;
         plate_map = SetMap(dimensions, {});
         plate_id = 0;
+        ObjectMap<bool>(d, false) m;
+        boundary_map = m;
     }
 
 
@@ -65,7 +67,8 @@ namespace world_base {
             for (auto it = value.begin(); it != value.end(); ++it)
                 plates.at(*it).push_back(c);
             if (value.size() > 1)
-                boundaries.push_back(c);
+                boundary_map.set_coordinate_value(c, true);
+                //boundaries.push_back(c);    //TODO: create an objectmap to make boundary lookup constant instead of linear
         }
         return;
     }
@@ -76,8 +79,8 @@ namespace world_base {
     }
 
 
-    std::vector<coordinate> TectonicPlates::get_plate_boundaries() {
-        return boundaries;
+    bool TectonicPlates::is_boundary(coordinate c) {
+        return boundary_map.get_coordinate_value(c);
     }
 
 

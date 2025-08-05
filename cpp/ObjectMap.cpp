@@ -8,9 +8,10 @@ namespace world_base {
     }
 
     template <typename T>
-    ObjectMap<T>::ObjectMap(coordinate d, T base_object) {
+    ObjectMap<T>::ObjectMap(coordinate d, T b) {
         dimensions = d;
-        map = create_coordinates(dimensions, base_object);
+        map = create_coordinates(dimensions, b);
+        base_object = b;
     }
 
 
@@ -68,9 +69,11 @@ namespace world_base {
     }
 
     template <typename T>
-    // putting it into a pointer to allow for error codes
     T ObjectMap<T>::get_coordinate_value(coordinate p) {
-        return map.at(p.x).at(p.y);
+        if (coordinate_outside_dimensions(p) == true)
+            return base_object;
+        else 
+            return map.at(p.x).at(p.y);
     }
 
     template <typename T>
@@ -85,6 +88,11 @@ namespace world_base {
     template <typename T>
     float ObjectMap<T>::get_distance(coordinate p1, coordinate p2) {
         return std::sqrt(std::pow(p1.x - p2.x, 2) + std::pow(p1.y - p2.y, 2));
+    }
+
+    template <typename T>
+    float ObjectMap<T>::get_distance(fvector v1, fvector v2) {
+        return std::sqrt(std::pow(v1.x - v2.x, 2) + std::pow(v1.y - v2.y, 2));
     }
 
     template <typename T>
@@ -110,7 +118,7 @@ namespace world_base {
 
     template <typename T>
     fvector ObjectMap<T>::standardize_vector(fvector v) {
-        fvector ret;
+        fvector ret = {};
         if (v.x == 0 and v.y != 0) {
             ret.y = v.y/std::abs(v.y);
         }
@@ -122,7 +130,7 @@ namespace world_base {
         }
         else if (std::abs(v.x) > std::abs(v.y)) {
             ret.x = v.x/std::abs(v.x);
-            ret.y = v.y/std::abs(v.y);
+            ret.y = v.y/std::abs(v.x);
         }
         else {
             ret.x = v.x/std::abs(v.y);
@@ -139,4 +147,9 @@ namespace world_base {
         return d;
     }
 
+
+    template <typename T>
+    coordinate ObjectMap<T>::get_dimensions() {
+        return dimensions;
+    }
 }
