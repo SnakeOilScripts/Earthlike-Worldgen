@@ -6,7 +6,7 @@ namespace world_base {
         dimensions = d;
         plate_map = SetMap(dimensions, {});
         plate_id = 0;
-        ObjectMap<bool>(d, false) m;
+        ObjectMap<bool> m(d, false);
         boundary_map = m;
     }
 
@@ -86,5 +86,9 @@ namespace world_base {
 
     int TectonicPlates::get_plate_count() {
         return plate_id;
+    }
+
+    std::set<int> TectonicPlates::get_coordinate_value(coordinate c) {
+        return plate_map.get_coordinate_value(c);
     }
 }

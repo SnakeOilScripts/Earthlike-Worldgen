@@ -28,6 +28,7 @@ namespace world_base {
             std::vector<coordinate> get_plate(int id);
             bool is_boundary(coordinate c);
             int get_plate_count();
+            std::set<int> get_coordinate_value(coordinate c);
     };
 }
 

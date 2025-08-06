@@ -43,7 +43,7 @@ namespace world_base {
     }
 
     
-    void TectonicMovements::apply_hotspot() {
+    void TectonicMovements::apply_hotspots() {
         for (auto h:hotspots) {
             apply_volcanism(h.first);
             h.second--;
@@ -83,38 +83,75 @@ namespace world_base {
     }
 
 
-    bool TectonicMovements::is_boundary(coordinate c) {
+    /*bool TectonicMovements::is_boundary(coordinate c) {
         return plates_object->is_boundary(c);
-    }
+    }*/
 
 
     std::string TectonicMovements::identify_interaction(coordinate from, coordinate to) {
-
+        int from_plateid, to_plateid;
+        from_plateid = *(plates_object->get_coordinate_value(from).begin())
+        if (plates_object->get_coordinate_value(to).empty())
+            return "transform";
+        to_plateid = *(plates_object->get_coordinate_value(to).begin())
+        
+        if(from_plateid == to_plateid) {
+            if (plates_object->is_boundary(from) && plates_object->is_boundary(to))
+                return "transform";
+            else if (plates_object->is_boundary(from))
+                return "divergent";
+            else
+                return "transfer";
+        } else {
+            if (geology_object->get_height(from) <= geology_object->get_height(to)*subduction_requirement)
+                return "subduction";
+            else
+                return "convergent";
+        }
     }
 
 
     void TectonicMovements::point_interaction(coordinate from, coordinate to, std::string interaction_type, float ratio) {
-
+        geology_object->point_interaction(from, to, interaction_type, ratio);
     }
 
 
     void TectonicMovements::apply_changes() {
-
+        geology_object->apply_changes();
     }
 
 
     void TectonicMovements::apply_volcanism(coordinate c) {
-
+        if (((float)rand())/RAND_MAX <= volcanism_chance)
+            geology_object->apply_volcanism();
     }
 
 
     void TectonicMovements::simulate_plate_movement() {
-
+        int plate_id = rand() % plate_object->get_plate_count();
+        auto plate = plate_object->get_plate(plate_id);
+        fvector plate_movement = geology_object->generate_magma_current_vector(plate);
+        apply_vector_to_plate(plate_movement, plate);
+        geology_object->increment_cycle_ticker();
+        apply_hotspots();
+        manage_hotspots();
+        apply_changes();
     }
 
 
-    void TectonicMovements::apply_vector_to_plate(fvector v, int plate_id) {
-
+    void TectonicMovements::apply_vector_to_plate(fvector v, std::vector<coordinate> plate) {
+        std::string interaction_type;
+        for (auto c:plate) {
+            auto interactions = get_neighbor_interactions(c, v);
+            for (auto interaction:interactions) {
+                interaction_type = identify_interaction(c, interaction.first);
+                point_interaction(c, interaction.first, interaction_type, interaction.second);
+                if (interaction_type.compare("divergent") == 0)
+                    apply_volcanism(c);
+                else if (interaction_type.compare("subduction") == 0)
+                    apply_volcanism(interaction.first);
+            }
+        }
     }
 
 }
