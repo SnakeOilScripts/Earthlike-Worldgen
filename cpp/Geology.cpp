@@ -107,7 +107,7 @@ namespace world_base {
     void Geology::apply_rock_cycle() {
         std::vector<coordinate> all = value_map.get_all_coordinates();
         geodat value, cycle;
-        for (auto it=all.begin(); it!=all.end(); it++) {
+        for (auto it=all.begin(); it!=all.end(); ++it) {
             value = value_map.get_coordinate_value(*it);
             if (value.igneous >= value.sedimentary && value.igneous >= value.metamorphic) {
                 cycle = {};
@@ -134,7 +134,7 @@ namespace world_base {
         geodat c = {};
         c.sedimentary = 1;
         c.carbonate = 1;
-        for (auto it=all.begin(); it!=all.end(); it++) {
+        for (auto it=all.begin(); it!=all.end(); ++it) {
             if (get_height(*it) < last_sea_level)
                 value_map.increment_coordinate_value(*it, c);
         }
@@ -153,7 +153,7 @@ namespace world_base {
         std::vector<float> all_heights;
         int i,j;
         float sum_of_differences;
-        for (auto it=all_coordinates.begin(); it!=all_coordinates.end(); it++)
+        for (auto it=all_coordinates.begin(); it!=all_coordinates.end(); ++it)
             all_heights.push_back(get_height(*it));
         
         std::sort(all_heights.begin(), all_heights.end(), [](float a, float b){return a<b;});

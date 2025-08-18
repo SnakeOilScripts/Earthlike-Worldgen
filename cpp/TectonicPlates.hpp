@@ -20,6 +20,7 @@ namespace world_base {
             std::vector<std::vector<coordinate>> plates;
             ObjectMap<bool> boundary_map;
         public:
+            TectonicPlates();
             TectonicPlates(coordinate d);
             std::set<int> get_all_neighbor_values(coordinate c);
             void fill_plate_boundaries();

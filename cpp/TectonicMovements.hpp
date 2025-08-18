@@ -1,5 +1,5 @@
 #include <vector>
-#include <pair>
+#include <utility>
 #include <string>
 #include <algorithm>
 #include <random>
@@ -21,7 +21,7 @@ namespace world_base {
             ObjectMap<bool> map_helper;
             float subduction_requirement;
             float volcanism_chance;
-            std::vector<coordinate> hotspots;
+            std::vector<std::pair<coordinate,int>> hotspots;
             int n_hotspots;
             int hotspot_min_age;
             int hotspot_max_age;

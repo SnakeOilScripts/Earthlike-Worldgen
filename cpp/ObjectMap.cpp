@@ -102,7 +102,8 @@ namespace world_base {
         float d2 = get_distance(base, v2);
         float dot_product = v1.x * v2.x + v1.y * v2.y;
         // improvising a rounding to 2nd decimal
-        float angle = std::round(std::acos((dot_product / (d1*d2)) * std::pow(10, 2))) * std::pow(10, 2);
+        //float angle = std::round(std::acos((dot_product / (d1*d2)) * std::pow(10, 2))) * std::pow(10, 2);
+        float angle = std::round(std::acos(dot_product / (d1*d2)) * std::pow(10, 2)) / std::pow(10,2);
         return angle;
     }
     /*

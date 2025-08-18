@@ -8,7 +8,7 @@
 namespace world_base {
 
     class Split{
-        private:
+        protected:
             SetMap *shared_map;
             std::vector<coordinate> coordinates;
             //TODO: use vector instead of set here
@@ -23,6 +23,7 @@ namespace world_base {
             bool end_inactive(coordinate end);
             std::vector<coordinate> get_active_ends();
             bool is_active();
+            bool coordinate_blacklisted(coordinate c);
             void backtrack_end(coordinate c);
             coordinate get_nth_end_neighbor(coordinate end, int n);
             float angle_towards_nth_end_neighbor(coordinate end, int n, coordinate c);

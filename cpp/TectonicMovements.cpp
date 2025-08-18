@@ -33,12 +33,12 @@ namespace world_base {
 
 
     void TectonicMovements::manage_hotspots() {
-        for (auto it=hotspots.begin(); it!=hotspots.end(); i++) {
-            while (*it.second <= 0) //lifespan <= 0
+        for (auto it=hotspots.begin(); it!=hotspots.end(); ++it) {
+            while (it->second <= 0) //lifespan <= 0
                 hotspots.erase(it);
         }
         for (int i=0; i<n_hotspots-hotspots.size(); i++) {
-            hotspots.push_back(generate_hotspot);           //idgaf anymore if two hotspots share the same coordinates
+            hotspots.push_back(generate_hotspot());           //idgaf anymore if two hotspots share the same coordinates
         }
     }
 
@@ -56,22 +56,22 @@ namespace world_base {
         fvector goal_point, helper;
         goal_point = {v.x + c.x, v.y + c.y};
         auto available_neighbors = map_helper.get_adjacent_coordinates(c, false, false);    //out-of-bounds interactions are handled later
-        for (auto it=available_neighbors.begin(); it!=available_neighbors.end(); it++) {
+        for (auto it=available_neighbors.begin(); it!=available_neighbors.end(); ++it) {
             helper = ctofv(*it);
             while (map_helper.get_distance(goal_point, helper) >= 1) {
-                available_neighbors.erase(*it);
+                available_neighbors.erase(it);
             }
         }
         if (available_neighbors.size() == 0) {
     
         } else if (available_neighbors.size() == 1) {
             std::pair<coordinate,float> p;
-            p.first.x = static_cast<float>available_neighbors[0].x;
-            p.first.y = static_cast<float>available_neighbors[0].y;
+            p.first.x = static_cast<float>(available_neighbors[0].x);
+            p.first.y = static_cast<float>(available_neighbors[0].y);
             p.second = 1.0;
             ret.push_back(p);
         } else if (available_neighbors.size() == 2) {
-            float sum_distance = map_helper.get_distance(goal_point, ctovf(available_neighbors[0])) + map_helper.get_distance(goal-point, ctovf(available_neighbors[1]));
+            float sum_distance = map_helper.get_distance(goal_point, ctofv(available_neighbors[0])) + map_helper.get_distance(goal_point, ctofv(available_neighbors[1]));
             for (auto n:available_neighbors) {
                 std::pair<coordinate,float> p;
                 p.first = n;
@@ -90,23 +90,25 @@ namespace world_base {
 
     std::string TectonicMovements::identify_interaction(coordinate from, coordinate to) {
         int from_plateid, to_plateid;
-        from_plateid = *(plates_object->get_coordinate_value(from).begin())
+        from_plateid = *(plates_object->get_coordinate_value(from).begin());
         if (plates_object->get_coordinate_value(to).empty())
             return "transform";
-        to_plateid = *(plates_object->get_coordinate_value(to).begin())
+        to_plateid = *(plates_object->get_coordinate_value(to).begin());
         
-        if(from_plateid == to_plateid) {
-            if (plates_object->is_boundary(from) && plates_object->is_boundary(to))
+        if (from_plateid == to_plateid) {
+            if (plates_object->is_boundary(from) && plates_object->is_boundary(to)) {
                 return "transform";
-            else if (plates_object->is_boundary(from))
+            } else if (plates_object->is_boundary(from)) {
                 return "divergent";
-            else
+            } else {
                 return "transfer";
+            }
         } else {
-            if (geology_object->get_height(from) <= geology_object->get_height(to)*subduction_requirement)
+            if (geology_object->get_height(from) <= geology_object->get_height(to)*subduction_requirement) {
                 return "subduction";
-            else
+            } else {
                 return "convergent";
+            }
         }
     }
 
@@ -123,14 +125,14 @@ namespace world_base {
 
     void TectonicMovements::apply_volcanism(coordinate c) {
         if (((float)rand())/RAND_MAX <= volcanism_chance)
-            geology_object->apply_volcanism();
+            geology_object->apply_volcanism(c);
     }
 
 
     void TectonicMovements::simulate_plate_movement() {
-        int plate_id = rand() % plate_object->get_plate_count();
-        auto plate = plate_object->get_plate(plate_id);
-        fvector plate_movement = geology_object->generate_magma_current_vector(plate);
+        int plate_id = rand() % plates_object->get_plate_count();
+        auto plate = plates_object->get_plate(plate_id);
+        fvector plate_movement = geology_object->generate_magma_current_vector(&plate);
         apply_vector_to_plate(plate_movement, plate);
         geology_object->increment_cycle_ticker();
         apply_hotspots();

@@ -141,7 +141,7 @@ namespace world_base {
             neighbors = value_map.get_adjacent_coordinates(*it, true, false);
             std::sort(neighbors.begin(), neighbors.end(), [this](coordinate a, coordinate b){return this->get_height(a) < this->get_height(b);});
             if (get_height(neighbors.at(0)) < get_height(*it))
-                plate_vector += {neighbors.at(0).x - it->x, neighbors.at(0).y - it->y};
+                plate_vector += {static_cast<float>(neighbors.at(0).x - it->x), static_cast<float>(neighbors.at(0).y - it->y)};
         }
         return value_map.standardize_vector(plate_vector);
     }

@@ -32,7 +32,6 @@ namespace world_base {
         if (coordinate_outside_dimensions(c))
             return ret;
         v = get_adjacent_coordinates(c, true);
-        std::cout<<"___\n";
         for (auto it = v.begin(); it != v.end(); ++it) {
             std::set<int> current_set = map.at(it->x).at(it->y);
             if (current_set.find(value) != current_set.end())
@@ -53,6 +52,14 @@ namespace world_base {
                 ret.push_back(element);
         }
         return ret;
+    }
+
+
+    bool SetMap::coordinate_contains_value(coordinate c, int value) {
+        if (coordinate_outside_dimensions(c))
+            return false;
+        std::set<int> s = map.at(c.x).at(c.y);
+        return (s.find(value) != s.end());
     }
 
 }

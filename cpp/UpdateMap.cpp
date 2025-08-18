@@ -51,7 +51,7 @@ namespace world_base {
         }
         update_dimensions = this->get_expanded_dimensions(expansion_factor);
         update = this->create_coordinates(update_dimensions, base_object);
-        for (auto it=all_coordinates.begin(); it!=all_coordinates.end(); it++) {
+        for (auto it=all_coordinates.begin(); it!=all_coordinates.end(); ++it) {
             multiplier = this->get_coordinate_value(*it);
             for (int x=0; x<expansion_factor*3; x++) {
                 for (int y=0; y<expansion_factor*3; y++) {

@@ -2,6 +2,11 @@
 
 namespace world_base {
     
+    TectonicPlates::TectonicPlates() {
+
+    }
+    
+
     TectonicPlates::TectonicPlates(coordinate d) {
         dimensions = d;
         plate_map = SetMap(dimensions, {});

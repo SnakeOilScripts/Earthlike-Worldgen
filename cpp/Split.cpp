@@ -11,6 +11,7 @@ namespace world_base {
         shared_map = map;
         id = value;
         coordinates = base;
+        option_blacklist = {};
     }
 
 
@@ -54,7 +55,7 @@ namespace world_base {
             if (shared_map->coordinate_outside_dimensions(p))
                 return true;
             std::set<int> value = shared_map->get_coordinate_value(p);
-            if(value.size() != 0 && value.find(id) != value.end())
+            if(value.size() != 0 && value.find(id) == value.end())
                 return true;
         }
         return false;
@@ -73,6 +74,11 @@ namespace world_base {
 
     bool Split::is_active() {
         return (get_active_ends().size() > 0);
+    }
+
+
+    bool Split::coordinate_blacklisted(coordinate c) {
+        return (option_blacklist.find(c) != option_blacklist.end());
     }
 
 

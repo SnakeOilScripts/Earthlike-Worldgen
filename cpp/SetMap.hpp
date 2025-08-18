@@ -13,6 +13,7 @@ class SetMap: public ObjectMap<std::set<int>> {
         int remove_coordinate_value(coordinate c, int value);
         std::vector<coordinate> get_neighbors_containing_value(coordinate c, int value);
         std::vector<coordinate> get_all_coordinates_containing_value(int value);
+        bool coordinate_contains_value(coordinate c, int value);
 };
 }
 #endif

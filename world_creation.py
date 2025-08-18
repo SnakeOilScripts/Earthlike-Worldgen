@@ -404,7 +404,7 @@ class Split:
 
 
 class TectonicSplits:
-    def __init__(self, dimensions, direction_change_rate=0.25, direction_calc_n=8):
+    def __init__(self, dimensions, direction_change_rate=0.5, direction_calc_n=8):
         self.dimensions = dimensions
         self.direction_change_rate = direction_change_rate
         self.direction_calc_n = direction_calc_n
