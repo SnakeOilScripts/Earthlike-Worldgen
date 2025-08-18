@@ -131,13 +131,21 @@ namespace world_base {
 
     void TectonicMovements::simulate_plate_movement() {
         int plate_id = rand() % plates_object->get_plate_count();
+        std::cout<<"picked plate id\n";
         auto plate = plates_object->get_plate(plate_id);
+        std::cout<<"obtained plate coordinates vector\n";
         fvector plate_movement = geology_object->generate_magma_current_vector(&plate);
+        std::cout<<"obtained movement vector\n";
         apply_vector_to_plate(plate_movement, plate);
+        std::cout<<"applied vector to plate\n";
         geology_object->increment_cycle_ticker();
+        std::cout<<"incremented cycle ticker\n";
         apply_hotspots();
+        std::cout<<"applied hotspots\n";
         manage_hotspots();
+        std::cout<<"managed_hotspots\n";
         apply_changes();
+        std::cout<<"applied changes\n";
     }
 
 

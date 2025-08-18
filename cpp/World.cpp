@@ -26,9 +26,7 @@ namespace world_base {
     void World::develop_splits() {
         int finished = 0;
         while (finished == 0) {
-        //for (int i=0; i<1000; i++) {
             finished = splits_object.develop_splits();
-            //splits_object.print_split_map();
         }
         splits_object.print_split_map();
     }
@@ -39,6 +37,8 @@ namespace world_base {
         plates_object.generate_from_splits(splits_object.get_split_map());
         geology_object = Geology(dimensions);
         movements_object = TectonicMovements(dimensions, &plates_object, &geology_object);
+        //need to add one initial geological unit, to facilitate plate movement
+        geology_object.apply_volcanism({0,0});
     }
 
 

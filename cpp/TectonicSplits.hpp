@@ -24,7 +24,7 @@ namespace world_base {
 
         public:
             TectonicSplits();
-            TectonicSplits(coordinate d, float dcr=0.5, int d_len=8);
+            TectonicSplits(coordinate d, float dcr=0.5, int d_len=50);
             void initialize_split(coordinate base);
             void add_initial_split(float min_split_distance, int max_attempts=100);
             std::vector<Split*> get_active_splits();
