@@ -55,7 +55,7 @@ namespace world_base {
         }
 
         friend geodat operator*(geodat a, float factor) {
-            //rounding to second digit by default has to be implemented here!
+            //this operator is not associative!!!
             a.felsic *= factor;
             a.intermediate *= factor;
             a.mafic *= factor;
@@ -71,6 +71,13 @@ namespace world_base {
             a.mvt *= factor;
             return a;
         }
+
+        /*
+        geodat& operator*=(float factor) {
+            *this = *this * factor;
+            return *this;
+        }
+        */
 
         friend geodat operator*(float factor, geodat a) {
             return a*factor;
@@ -110,6 +117,7 @@ namespace world_base {
             geodat get_coordinate_value(coordinate c);
             //fvector generate_magma_current_vector(std::vector<coordinate> *plate);
             void print_height_map();
+            float get_sea_coverage();
     };
 }
 

@@ -184,28 +184,26 @@ namespace world_base {
         return value_map.get_coordinate_value(c);
     }
 
-    /*
-    fvector Geology::generate_magma_current_vector(std::vector<coordinate> *plate) {
-        fvector plate_vector = {0.0, 0.0};
-        std::vector<coordinate> neighbors;
-        for (auto it = plate->begin(); it != plate->end(); it++) {
-            neighbors = value_map.get_adjacent_coordinates(*it, true, false);
-            std::sort(neighbors.begin(), neighbors.end(), [this](coordinate a, coordinate b){return this->get_height(a) < this->get_height(b);});
-            if (get_height(neighbors.at(0)) < get_height(*it))
-                plate_vector += {static_cast<float>(neighbors.at(0).x - it->x), static_cast<float>(neighbors.at(0).y - it->y)};
-        }
-        return value_map.standardize_vector(plate_vector);
-    }
-    */
-
 
     void Geology::print_height_map() {
-        for (int y=0; y<dimensions.y; y++) {
-            for (int x=0; x<dimensions.x; x++) {
-                std::cout<<"["<<static_cast<int>(get_height({x,y}))<<"]\t";
+        coordinate dim = value_map.get_dimensions();
+        for (int y=0; y<dim.y; y++) {
+            for (int x=0; x<dim.x; x++) {
+                std::cout<<"["<<get_height({x,y})<<"]\t";
             }
             std::cout<<"\n";
         }
+    }
+
+
+    float Geology::get_sea_coverage() {
+        float sea_level = get_sea_level();
+        int coverage_count = 0;
+        for (auto c: value_map.get_all_coordinates()) {
+            if (get_height(c) > sea_level)
+                coverage_count++;
+        }
+        return (static_cast<float>(coverage_count) / static_cast<float>(value_map.get_all_coordinates().size()));
     }
 
 }

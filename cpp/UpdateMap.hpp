@@ -24,6 +24,7 @@ namespace world_base {
             float normal_pdf(float x, float mean, float standard_deviation);
             void transitional_gaussian_dimensions_expansion(int expansion_factor, T base_object);
             void increment_gaussian_coordinate(coordinate c, int x, int y, int expansion_factor, std::vector<std::vector<float>> *dp, T value);
+            bool update_coordinate_outside_dimensions(coordinate p);
 };
 
 }

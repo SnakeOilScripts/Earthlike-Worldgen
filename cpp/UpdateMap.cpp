@@ -12,11 +12,17 @@ namespace world_base {
     }
 
 
+    template <typename T>
+    bool UpdateMap<T>::update_coordinate_outside_dimensions(coordinate p) {
+        return (p.x<0 || p.y<0 || p.x >= update_dimensions.x || p.y >= update_dimensions.y);
+    }
+
+
     // requires the base_object to have a + and += operator defined!!! especially for new structs
     template <typename T>
     void UpdateMap<T>::increment_coordinate_value(coordinate c, T value) {
         T inc;
-        if (!(this->coordinate_outside_dimensions(c))) {
+        if (!(this->update_coordinate_outside_dimensions(c))) {
             inc = update.at(c.x).at(c.y);
             update.at(c.x).at(c.y)= inc + value;
         }
@@ -40,11 +46,13 @@ namespace world_base {
 
     template <typename T>
     void UpdateMap<T>::transitional_gaussian_dimensions_expansion(int expansion_factor, T base_object) {
-        float standard_deviation = expansion_factor/2;
+        float standard_deviation = expansion_factor/2.0;
         T multiplier;
         std::vector<std::vector<float>> dp;
         std::vector<coordinate> all_coordinates = this->get_all_coordinates();
         for (int x=0; x<expansion_factor*3; x++) {
+            std::vector<float> row;
+            dp.push_back(row);
             for (int y=0; y<expansion_factor*3; y++) {
                 dp.at(x).push_back(normal_pdf(x+1, expansion_factor + (expansion_factor+1)/2, standard_deviation) + normal_pdf(y+1, expansion_factor + (expansion_factor+1)/2, standard_deviation));
             }
@@ -70,6 +78,8 @@ namespace world_base {
         adjusted_coordinate.x = adjusted_coordinate.x * expansion_factor + x;
         adjusted_coordinate.y -= 1;
         adjusted_coordinate.y = adjusted_coordinate.y * expansion_factor + y;
-        increment_coordinate_value(adjusted_coordinate, ((dp->at(x).at(y)) * value) *(1/3));     //using *1/3 to avoid needing another operator for geodat struct
+        increment_coordinate_value(adjusted_coordinate, ((dp->at(x).at(y)) * value) *(1.0));     //using *0.33 to avoid needing another operator for geodat struct
+        //NOTE: using * (1/3) casts 1/3 into an integer, which is 0, and THEN multiplies is, always resulting in 0
     }
+
 }

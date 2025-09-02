@@ -97,6 +97,7 @@ namespace world_base {
         to_plateid = *(plates_object->get_coordinate_value(to).begin());
         
         if (from_plateid == to_plateid) {
+            //TODO: make movement away from map edge divergent interaction
             if (plates_object->is_boundary(from) && plates_object->is_boundary(to)) {
                 return "transform";
             } else if (plates_object->is_boundary(from)) {
@@ -132,14 +133,11 @@ namespace world_base {
 
     void TectonicMovements::simulate_plate_movement() {
         int plate_id = rand() % plates_object->get_plate_count();
-        std::cout<<"plate_id: "<<plate_id;
         auto plate = plates_object->get_plate(plate_id);
-        std::cout<<"\tplate size: "<<plate.size();
         fvector plate_movement = geology_object->generate_magma_current_vector(&plate);
-        std::cout<<"\tplate vector: "<<plate_movement.x<<" "<<plate_movement.y<<"\n";
         apply_vector_to_plate(plate_movement, plate);
         geology_object->increment_cycle_ticker();
-        //apply_hotspots();
+        apply_hotspots();
         manage_hotspots();
         apply_changes();
     }

@@ -21,37 +21,32 @@
 #include "World.hpp"
 #include "World.cpp"
 
+//#TODO: divide values by 3 when using dimension expansion???
+
 int main() {
     
-    world_base::World w({5,5}, "backpack");
-    w.prepare_tectonics(1, 10.0);
+    //world_base::World w({5,5}, "backpack");
+    //w.prepare_tectonics(1, 10.0);
     
-    //world_base::World w({50,50}, "capital");
-    //w.prepare_tectonics(10, 10.0);
+    world_base::World w({100,100}, "capital");
+    w.prepare_tectonics(20, 20.0);
     
     //TODO: reactivate hotspots in tectonicmovements
 
     w.develop_splits();
     w.splits_object.print_split_map();
     w.prepare_tectonic_movements();
-    w.geology_object.apply_volcanism({0,0});
-    w.geology_object.apply_volcanism({1,0});
-    w.geology_object.apply_changes();
-
-    w.geology_object.print_height_map();
-    
-    //w.geology_object.falloff_interaction({0,2}, );
 
     //return 0;
-    for (int i=0; i<10; i++) {
+    for (int i=0; i<10000; i++) {
         w.simulate_tectonic_movements();
-        w.geology_object.print_height_map();
-        std::cout<<"____________________________________\n";
     }
+    std::cout<<w.geology_object.get_sea_level()<<" "<<w.geology_object.get_sea_coverage()<<"\n";
     
 
-    //w.expand_dimensions(2);
-    //std::cout<<"finished dimensions expansion\n";
+    w.expand_dimensions(2);
+    std::cout<<"finished dimensions expansion\n";
+    std::cout<<w.geology_object.get_sea_level()<<" "<<w.geology_object.get_sea_coverage()<<"\n";
 
     return 0;
 }

@@ -65,7 +65,7 @@ namespace world_base {
             plates.at(*min).push_back(c);
             }
             // assign split coordinates to plates without changing the split_map (ensures proper neighbor relations)
-            if (split_map->get_coordinate_value(c).size() > 0) {
+            if (split_map->get_coordinate_value(c).size() > 0) {    //mark all genuine boundaries plus map edges
                 boundary_map.set_coordinate_value(c, true);
                 auto all_neighbor_values = get_all_neighbor_values(c);
                 auto min = std::min_element(all_neighbor_values.begin(), all_neighbor_values.end());

@@ -25,7 +25,6 @@ namespace world_base {
     template <typename T>
     T TectonicDomain<T>::get_transfer_unit(T value, float ratio) {
         //meant to be overwritten
-        std::cout<<"using base class function\n";
         return value;
     }
 
@@ -51,7 +50,7 @@ namespace world_base {
     template <typename T>
     void TectonicDomain<T>::point_interaction(coordinate from, coordinate to, std::string mode, float ratio) {
         T transfer_unit = get_transfer_unit(value_map.get_coordinate_value(from), ratio);
-        std::cout<<"TRANSFER UNIT: "<<transfer_unit<<"\n";
+        //std::cout<<"TRANSFER UNIT: "<<transfer_unit<<"\n";
         if (value_map.coordinate_outside_dimensions(to))
             falloff_interaction(from, transfer_unit);
         else if (mode.compare("transfer") == 0)
