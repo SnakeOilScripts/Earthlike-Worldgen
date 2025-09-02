@@ -41,13 +41,13 @@ namespace world_base {
     }
 
     template <typename T>
-    int ObjectMap<T>::coordinate_outside_dimensions(coordinate p) {
+    bool ObjectMap<T>::coordinate_outside_dimensions(coordinate p) {
         if (p.x < 0 || p.y < 0)
-            return 1;
+            return true;
         else if (p.x >= dimensions.x || p.y >= dimensions.y)
-            return 1;
+            return true;
         else
-            return 0;
+            return false;
     }
 
     template <typename T>
@@ -56,12 +56,15 @@ namespace world_base {
         for (int x=p.x-1; x<=p.x+1; x++) {
             for (int y=p.y-1; y<=p.y+1; y++) {
                 coordinate c = {x,y};
-                if (within_dimensions && coordinate_outside_dimensions(c))
+                if (within_dimensions && coordinate_outside_dimensions(c)) {
                     continue;
-                if (nondiagonal && (x != p.x && y != p.y))
+                }
+                if (nondiagonal && (x != p.x && y != p.y)) {
                     continue;
-                if (x == 0 && y == 0)
+                }
+                if (c.x == p.x && c.y == p.y) {
                     continue;
+                }
                 v.push_back(c);
             }
         }

@@ -112,8 +112,8 @@ def visualize_geology_rocks(geology, figname):
     plt.savefig(figname+"_rocktypes")
 
 
-dimensions = ((0,50),(0,50))
-splits = initialize_world("ernalia", dimensions, 10, 15)
+dimensions = ((0,100),(0,100))
+splits = initialize_world("ernalia", dimensions, 20, 20)
 geology = generate(dimensions, splits)
 
 

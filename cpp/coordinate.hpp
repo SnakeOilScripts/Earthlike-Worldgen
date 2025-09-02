@@ -1,3 +1,4 @@
+#include <string>
 
 #ifndef _COORDINATE_H
 #define _COORDINATE_H
@@ -31,7 +32,12 @@ struct coordinate {
         return (x == a.x && y ==  a.y);
     }
     friend bool operator<(coordinate a, const coordinate& b) {
-        return (a.x+a.y < b.x+b.y);
+        //return (a.x+a.y < b.x+b.y);
+        //this function only exists to allow coordinates in sets, using hashes like in python dictionaries/sets
+        std::string as, bs;
+        as = std::to_string(a.x) + "_" + std::to_string(a.y);
+        bs = std::to_string(b.x) + "_" + std::to_string(b.y);
+        return std::hash<std::string>()(as) < std::hash<std::string>()(bs);
     }
     
 };

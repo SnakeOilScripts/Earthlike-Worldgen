@@ -23,15 +23,35 @@
 
 int main() {
     
-    world_base::coordinate d{100,100};
-    world_base::World w(d, "capital");
-    w.prepare_tectonics(20, 20.0);
-    std::cout << "splits prepared\n";
-    w.develop_splits();
-    std::cout << "splits finished\n";
+    world_base::World w({5,5}, "backpack");
+    w.prepare_tectonics(1, 10.0);
     
-    //w.prepare_tectonic_movements();
-    //w.simulate_tectonic_movements();
+    //world_base::World w({50,50}, "capital");
+    //w.prepare_tectonics(10, 10.0);
+    
+    //TODO: reactivate hotspots in tectonicmovements
+
+    w.develop_splits();
+    w.splits_object.print_split_map();
+    w.prepare_tectonic_movements();
+    w.geology_object.apply_volcanism({0,0});
+    w.geology_object.apply_volcanism({1,0});
+    w.geology_object.apply_changes();
+
+    w.geology_object.print_height_map();
+    
+    //w.geology_object.falloff_interaction({0,2}, );
+
+    //return 0;
+    for (int i=0; i<10; i++) {
+        w.simulate_tectonic_movements();
+        w.geology_object.print_height_map();
+        std::cout<<"____________________________________\n";
+    }
+    
+
+    //w.expand_dimensions(2);
+    //std::cout<<"finished dimensions expansion\n";
 
     return 0;
 }

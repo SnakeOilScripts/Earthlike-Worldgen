@@ -28,7 +28,6 @@ namespace world_base {
         while (finished == 0) {
             finished = splits_object.develop_splits();
         }
-        splits_object.print_split_map();
     }
 
 
@@ -39,10 +38,16 @@ namespace world_base {
         movements_object = TectonicMovements(dimensions, &plates_object, &geology_object);
         //need to add one initial geological unit, to facilitate plate movement
         geology_object.apply_volcanism({0,0});
+        geology_object.apply_changes();
     }
 
 
     void World::simulate_tectonic_movements() {
         movements_object.simulate_plate_movement();
+    }
+
+
+    void World::expand_dimensions(int factor) {
+        geology_object.expand_dimensions_transitional_gaussian(factor);
     }
 }

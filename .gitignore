@@ -4,5 +4,5 @@ __pycache__/*
 *.pickle
 plots/*
 **a.out
-**fixit/*
+**error_replication/*
 **relics/*

@@ -55,6 +55,7 @@ namespace world_base {
         }
 
         friend geodat operator*(geodat a, float factor) {
+            //rounding to second digit by default has to be implemented here!
             a.felsic *= factor;
             a.intermediate *= factor;
             a.mafic *= factor;
@@ -69,6 +70,17 @@ namespace world_base {
             a.sedex *= factor;
             a.mvt *= factor;
             return a;
+        }
+
+        friend geodat operator*(float factor, geodat a) {
+            return a*factor;
+        }
+
+        friend std::ostream& operator<<(std::ostream& os, geodat g) {
+            os<<"felsic: "<<g.felsic<<" intermediate: "<<g.intermediate<<" mafic: "<<g.mafic<<" ultramafic: "<<g.ultramafic<<"\n";
+            os<<"igneous: "<<g.igneous<<" sedimentary: "<<g.sedimentary<<" metamorphic: "<<g.metamorphic<<"\n";
+            os<<"carbonate: "<<g.carbonate<<" porphyry: "<<g.porphyry<<" skarn: "<<g.skarn<<" vms: "<<g.vms<<" sedex: "<<g.sedex<<" mvt: "<<g.mvt<<"\n";
+            return os;
         }
     };
 
@@ -95,6 +107,9 @@ namespace world_base {
             float get_sea_level(float base_water_factor=20);
             float get_height(coordinate c);
             void expand_dimensions_transitional_gaussian(int factor);
+            geodat get_coordinate_value(coordinate c);
+            fvector generate_magma_current_vector(std::vector<coordinate> *plate);
+            void print_height_map();
     };
 }
 

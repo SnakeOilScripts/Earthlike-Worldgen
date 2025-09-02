@@ -22,6 +22,7 @@ namespace world_base {
             void develop_splits();
             void prepare_tectonic_movements();
             void simulate_tectonic_movements();
+            void expand_dimensions(int factor);
     };
 }
 

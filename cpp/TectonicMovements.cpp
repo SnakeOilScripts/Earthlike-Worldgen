@@ -56,14 +56,15 @@ namespace world_base {
         fvector goal_point, helper;
         goal_point = {v.x + c.x, v.y + c.y};
         auto available_neighbors = map_helper.get_adjacent_coordinates(c, false, false);    //out-of-bounds interactions are handled later
-        for (auto it=available_neighbors.begin(); it!=available_neighbors.end(); ++it) {
+        for (auto it=available_neighbors.end(); it>=available_neighbors.begin(); it--) {
             helper = ctofv(*it);
-            while (map_helper.get_distance(goal_point, helper) >= 1) {
-                available_neighbors.erase(it);
+            if (map_helper.get_distance(goal_point, helper) >= 1) {
+                //available_neighbors.erase(it);
+                available_neighbors.pop_back();
             }
         }
         if (available_neighbors.size() == 0) {
-    
+
         } else if (available_neighbors.size() == 1) {
             std::pair<coordinate,float> p;
             p.first.x = static_cast<float>(available_neighbors[0].x);
@@ -131,21 +132,16 @@ namespace world_base {
 
     void TectonicMovements::simulate_plate_movement() {
         int plate_id = rand() % plates_object->get_plate_count();
-        std::cout<<"picked plate id\n";
+        std::cout<<"plate_id: "<<plate_id;
         auto plate = plates_object->get_plate(plate_id);
-        std::cout<<"obtained plate coordinates vector\n";
+        std::cout<<"\tplate size: "<<plate.size();
         fvector plate_movement = geology_object->generate_magma_current_vector(&plate);
-        std::cout<<"obtained movement vector\n";
+        std::cout<<"\tplate vector: "<<plate_movement.x<<" "<<plate_movement.y<<"\n";
         apply_vector_to_plate(plate_movement, plate);
-        std::cout<<"applied vector to plate\n";
         geology_object->increment_cycle_ticker();
-        std::cout<<"incremented cycle ticker\n";
-        apply_hotspots();
-        std::cout<<"applied hotspots\n";
+        //apply_hotspots();
         manage_hotspots();
-        std::cout<<"managed_hotspots\n";
         apply_changes();
-        std::cout<<"applied changes\n";
     }
 
 
@@ -156,10 +152,12 @@ namespace world_base {
             for (auto interaction:interactions) {
                 interaction_type = identify_interaction(c, interaction.first);
                 point_interaction(c, interaction.first, interaction_type, interaction.second);
-                if (interaction_type.compare("divergent") == 0)
+                if (interaction_type.compare("divergent") == 0) {
                     apply_volcanism(c);
-                else if (interaction_type.compare("subduction") == 0)
+                }
+                else if (interaction_type.compare("subduction") == 0) {
                     apply_volcanism(interaction.first);
+                }
             }
         }
     }

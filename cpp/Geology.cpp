@@ -7,9 +7,10 @@ namespace world_base {
     }
 
 
-    Geology::Geology(coordinate d, float base_unit_size) {
+    Geology::Geology(coordinate d, float unit_size) {
         abundances = {0.282, 0.0823, 0.0563, 0.0415, 0.0236, 0.0233, 0.0209};
         dimensions = d;
+        base_unit_size = unit_size;
         geodat base_unit = create_new_unit();
         last_sea_level = 0;
         value_map = UpdateMap(dimensions, base_unit);
@@ -66,8 +67,9 @@ namespace world_base {
 
 
     void Geology::apply_volcanism(coordinate c) {
-        for (int i=0; i<volcanism_potency; i++)
+        for (int i=0; i<volcanism_potency; i++) {
             value_map.increment_coordinate_value(c, create_new_unit());
+        }
     }
 
 
@@ -175,7 +177,34 @@ namespace world_base {
 
 
     void Geology::expand_dimensions_transitional_gaussian(int factor) {
+        value_map.transitional_gaussian_dimensions_expansion(factor, {});
+    }
 
+    geodat Geology::get_coordinate_value(coordinate c) {
+        return value_map.get_coordinate_value(c);
+    }
+
+
+    fvector Geology::generate_magma_current_vector(std::vector<coordinate> *plate) {
+        fvector plate_vector = {0.0, 0.0};
+        std::vector<coordinate> neighbors;
+        for (auto it = plate->begin(); it != plate->end(); it++) {
+            neighbors = value_map.get_adjacent_coordinates(*it, true, false);
+            std::sort(neighbors.begin(), neighbors.end(), [this](coordinate a, coordinate b){return this->get_height(a) < this->get_height(b);});
+            if (get_height(neighbors.at(0)) < get_height(*it))
+                plate_vector += {static_cast<float>(neighbors.at(0).x - it->x), static_cast<float>(neighbors.at(0).y - it->y)};
+        }
+        return value_map.standardize_vector(plate_vector);
+    }
+
+
+    void Geology::print_height_map() {
+        for (int y=0; y<dimensions.y; y++) {
+            for (int x=0; x<dimensions.x; x++) {
+                std::cout<<"["<<static_cast<int>(get_height({x,y}))<<"]\t";
+            }
+            std::cout<<"\n";
+        }
     }
 
 }

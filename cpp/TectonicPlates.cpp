@@ -24,27 +24,19 @@ namespace world_base {
     }
 
 
-    void TectonicPlates::fill_plate_boundaries() {
-        for (int y=0; y<dimensions.y; y++) {
-            for (int x=0; x<dimensions.x; x++) {
-                if (plate_map.get_coordinate_value({x,y}).size() == 0)
-                    plate_map.update_coordinate_value({x,y}, get_all_neighbor_values({x,y}));
-            }
-        }
-        return;
-    }
-
-
     void TectonicPlates::spread_value_within_boundary(SetMap *split_map, int value, coordinate start) {
         std::set<coordinate> next_round{start};
+        std::set<coordinate> neighbors;
         while (next_round.size() > 0) {
-            std::set<coordinate> neighbors;
+            neighbors = {};
             for (auto c: next_round) {
                 plate_map.add_coordinate_value(c, value);
-                for (auto p: plate_map.get_adjacent_coordinates(c, true, true))
-                    if ((*split_map).get_coordinate_value(p).size() == 0   //coordinate is not part of a split
-                    && plate_map.get_coordinate_value(p).size() == 0)   //coordinate is not already filled
+                for (auto p: plate_map.get_adjacent_coordinates(c, true, true)) {
+                    if (split_map->get_coordinate_value(p).size() == 0 && plate_map.get_coordinate_value(p).size() == 0) {
+                        //only insert neighbors that are not part of another plate or part of a split
                         neighbors.insert(p);
+                    }
+                }
             }
             next_round = neighbors;
             //~neighbors(); //destructor necessary???
@@ -55,7 +47,7 @@ namespace world_base {
     void TectonicPlates::generate_from_splits(SetMap *split_map) {
         for (int y=0; y<dimensions.y; y++) {
             for (int x=0; x<dimensions.x; x++) {
-                if ((*split_map).get_coordinate_value({x,y}).size() > 0)
+                if (split_map->get_coordinate_value({x,y}).size() > 0)
                     continue;
                 if (plate_map.get_coordinate_value({x,y}).size() == 0) {
                     spread_value_within_boundary(split_map, plate_id, {x,y});
@@ -64,16 +56,21 @@ namespace world_base {
                 }
             }
         }
-        fill_plate_boundaries();
         // create vectors containing coordinates of one plate, and one vector containing coordinates identified as boundaries
         // this will make several methods in other classes obsolete
         for (auto c: plate_map.get_all_coordinates()) {
             std::set<int> value = plate_map.get_coordinate_value(c);
-            for (auto it = value.begin(); it != value.end(); ++it)
-                plates.at(*it).push_back(c);
-            if (value.size() > 1)
+            if (value.size() > 0) {
+            auto min = std::min_element(value.begin(), value.end());
+            plates.at(*min).push_back(c);
+            }
+            // assign split coordinates to plates without changing the split_map (ensures proper neighbor relations)
+            if (split_map->get_coordinate_value(c).size() > 0) {
                 boundary_map.set_coordinate_value(c, true);
-                //boundaries.push_back(c);    //TODO: create an objectmap to make boundary lookup constant instead of linear
+                auto all_neighbor_values = get_all_neighbor_values(c);
+                auto min = std::min_element(all_neighbor_values.begin(), all_neighbor_values.end());
+                plates.at(*min).push_back(c);
+            }
         }
         return;
     }
@@ -96,4 +93,28 @@ namespace world_base {
     std::set<int> TectonicPlates::get_coordinate_value(coordinate c) {
         return plate_map.get_coordinate_value(c);
     }
+
+    void TectonicPlates::print_plate(int id) {
+        auto plate = plates.at(id);
+        coordinate c{};
+        bool found = false;
+        while (c.y < dimensions.y) {
+            while (c.x<dimensions.x) {
+                for (auto p:plate) {
+                    if (p == c)
+                        found = true;
+                }
+                if (found)
+                    std::cout<<"#";
+                else
+                    std::cout<<":";
+                found = false;
+                c.x++;
+            }
+            std::cout<<"\n";
+            c.x=0;
+            c.y++;
+        }
+    }
+
 }

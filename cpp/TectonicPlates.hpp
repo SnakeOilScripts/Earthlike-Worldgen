@@ -23,13 +23,13 @@ namespace world_base {
             TectonicPlates();
             TectonicPlates(coordinate d);
             std::set<int> get_all_neighbor_values(coordinate c);
-            void fill_plate_boundaries();
             void spread_value_within_boundary(SetMap *split_map, int value, coordinate start);
             void generate_from_splits(SetMap *split_map);
             std::vector<coordinate> get_plate(int id);
             bool is_boundary(coordinate c);
             int get_plate_count();
             std::set<int> get_coordinate_value(coordinate c);
+            void print_plate(int id);
     };
 }
 

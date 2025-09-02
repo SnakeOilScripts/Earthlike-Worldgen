@@ -27,7 +27,7 @@ namespace world_base {
             UpdateMap<T> get_map();
             void apply_changes();
             void point_interaction(coordinate from, coordinate to, std::string mode, float ratio);
-            void falloff_interaction(coordinate to, T transfer_unit);
+            void falloff_interaction(coordinate from, T transfer_unit);
             void transfer_interaction(coordinate from, coordinate to, T transfer_unit);
             void transform_interaction(coordinate from, coordinate to, T transfer_unit);
             void divergent_interaction(coordinate from, coordinate to, T transfer_unit, float ratio);

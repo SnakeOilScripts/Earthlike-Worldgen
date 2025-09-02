@@ -51,7 +51,7 @@ namespace world_base {
     void TectonicDomain<T>::point_interaction(coordinate from, coordinate to, std::string mode, float ratio) {
         T transfer_unit = get_transfer_unit(value_map.get_coordinate_value(from), ratio);
         if (value_map.coordinate_outside_dimensions(to))
-            falloff_interaction(to, transfer_unit);
+            falloff_interaction(from, transfer_unit);
         else if (mode.compare("transfer") == 0)
             transfer_interaction(from, to, transfer_unit);
         else if (mode.compare("transform") == 0)
@@ -66,14 +66,14 @@ namespace world_base {
 
 
     template <typename T>
-    void TectonicDomain<T>::falloff_interaction(coordinate to, T transfer_unit) {
-        value_map.increment_coordinate_value(to, get_transfer_unit(transfer_unit, -1.0));
+    void TectonicDomain<T>::falloff_interaction(coordinate from, T transfer_unit) {
+        value_map.increment_coordinate_value(from, get_transfer_unit(transfer_unit, -1));
     }
 
 
     template <typename T>
     void TectonicDomain<T>::transfer_interaction(coordinate from, coordinate to, T transfer_unit) {
-        value_map.increment_coordinate_value(from, get_transfer_unit(transfer_unit, -1.0));
+        value_map.increment_coordinate_value(from, get_transfer_unit(transfer_unit, -1));
         value_map.increment_coordinate_value(to, transfer_unit);
     }
 
@@ -81,14 +81,14 @@ namespace world_base {
     template <typename T>
     void TectonicDomain<T>::transform_interaction(coordinate from, coordinate to, T transfer_unit) {
         //placeholder for changing the ratios of intrusive/extrusive rock types
-        value_map.increment_coordinate_value(from, get_transfer_unit(transfer_unit, -1.0));
+        value_map.increment_coordinate_value(from, get_transfer_unit(transfer_unit, -1));
         value_map.increment_coordinate_value(to, transfer_unit);
     }
 
 
     template <typename T>
     void TectonicDomain<T>::divergent_interaction(coordinate from, coordinate to, T transfer_unit, float ratio) {
-        value_map.increment_coordinate_value(from, get_transfer_unit(transfer_unit, -1.0));
+        value_map.increment_coordinate_value(from, get_transfer_unit(transfer_unit, -1));
         value_map.increment_coordinate_value(to, transfer_unit);
         value_map.increment_coordinate_value(from, get_transfer_unit(create_new_unit(), ratio));
     }
@@ -135,6 +135,7 @@ namespace world_base {
     //fully generates the standardized direction vector for a given plate
     template <typename T>
     fvector TectonicDomain<T>::generate_magma_current_vector(std::vector<coordinate> *plate) {
+        //MUST BE OVERRIDDEN BY CHILD CLASSES because *this doesnt get updates to child this ptr
         fvector plate_vector = {0.0, 0.0};
         std::vector<coordinate> neighbors;
         for (auto it = plate->begin(); it != plate->end(); it++) {
@@ -146,9 +147,10 @@ namespace world_base {
         return value_map.standardize_vector(plate_vector);
     }
     
-
+    
     template <typename T>
     float TectonicDomain<T>::get_height(coordinate c) {
         return 0.0;
     }
+    
 }

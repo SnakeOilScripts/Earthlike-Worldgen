@@ -21,7 +21,7 @@ namespace world_base {
             ObjectMap (coordinate d, T base_object);
             std::vector<std::vector<T>> create_coordinates(coordinate dimensions, T b);
             std::vector<coordinate> get_all_coordinates();
-            int coordinate_outside_dimensions(coordinate p);
+            bool coordinate_outside_dimensions(coordinate p);
             std::vector<coordinate> get_adjacent_coordinates(coordinate p, bool within_dimensions=false, bool nondiagonal=false);
             T get_coordinate_value(coordinate p);
             int set_coordinate_value(coordinate p, T value);
