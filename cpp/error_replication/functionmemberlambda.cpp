@@ -8,7 +8,7 @@ class Test {
 
         }
         
-        int add(int a) {
+        virtual int add(int a) {
             std::cout<<"processing: "<<a<<"+1\n";
             return a+1;
         }
@@ -16,7 +16,7 @@ class Test {
 
         void sorting() {
             std::vector<int> v{4,10,3};
-            //std::sort(v.begin(), v.end(), [this](int a, int b){return add(a) < add(b);});
+            std::sort(v.begin(), v.end(), [this](int a, int b){return add(a) < add(b);});
 
 
             for (auto i:v)
@@ -33,7 +33,7 @@ class Test {
 class Test2:public Test {
     public:
 
-    int add(int a) {
+    virtual int add(int a) {
         std::cout<<"processing: "<<a<<"+2\n";
         return a+2;
     }

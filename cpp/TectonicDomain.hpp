@@ -22,23 +22,23 @@ namespace world_base {
         public:
             TectonicDomain();
             TectonicDomain(coordinate d, T b);
-            void apply_volcanism(coordinate c);
-            T get_transfer_unit(T value, float ratio);
+            virtual void apply_volcanism(coordinate c);
+            virtual T get_transfer_unit(T value, float ratio);
             UpdateMap<T> get_map();
             void apply_changes();
             void point_interaction(coordinate from, coordinate to, std::string mode, float ratio);
-            void falloff_interaction(coordinate from, T transfer_unit);
-            void transfer_interaction(coordinate from, coordinate to, T transfer_unit);
-            void transform_interaction(coordinate from, coordinate to, T transfer_unit);
-            void divergent_interaction(coordinate from, coordinate to, T transfer_unit, float ratio);
-            void convergent_interaction(coordinate from, coordinate to, T transfer_unit);
-            void subduction_interaction(coordinate from, coordinate to, T transfer_unit);
-            T create_new_unit();
+            virtual void falloff_interaction(coordinate from, T transfer_unit);
+            virtual void transfer_interaction(coordinate from, coordinate to, T transfer_unit);
+            virtual void transform_interaction(coordinate from, coordinate to, T transfer_unit);
+            virtual void divergent_interaction(coordinate from, coordinate to, T transfer_unit, float ratio);
+            virtual void convergent_interaction(coordinate from, coordinate to, T transfer_unit);
+            virtual void subduction_interaction(coordinate from, coordinate to, T transfer_unit);
+            virtual T create_new_unit();
             void increment_cycle_ticker();
-            void cycle_action();
+            virtual void cycle_action();
             //placeholders meant to be overwritten by child class
-            fvector generate_magma_current_vector(std::vector<coordinate> *plate);
-            float get_height(coordinate c);
+            virtual fvector generate_magma_current_vector(std::vector<coordinate> *plate);
+            virtual float get_height(coordinate c);
     };
 
 }

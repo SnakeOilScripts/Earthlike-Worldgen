@@ -94,21 +94,21 @@ namespace world_base {
             Geology();
             Geology(coordinate d, float unit_size=100.0);
             std::string determine_rock_type();
-            void apply_volcanism(coordinate c);
+            virtual void apply_volcanism(coordinate c);
             void magmatic_deposition(coordinate c, geodat before, geodat after);
             void hydrothermal_deposition(coordinate c);
-            geodat create_new_unit();
-            geodat get_transfer_unit(geodat value, float ratio);
-            void subduction_interaction(coordinate from, coordinate to, geodat transfer_unit);
+            virtual geodat create_new_unit();
+            virtual geodat get_transfer_unit(geodat value, float ratio);
+            virtual void subduction_interaction(coordinate from, coordinate to, geodat transfer_unit);
             void apply_rock_cycle();
             void add_carbonate();
-            void cycle_action();
+            virtual void cycle_action();
 
             float get_sea_level(float base_water_factor=20);
-            float get_height(coordinate c);
+            virtual float get_height(coordinate c);
             void expand_dimensions_transitional_gaussian(int factor);
             geodat get_coordinate_value(coordinate c);
-            fvector generate_magma_current_vector(std::vector<coordinate> *plate);
+            //fvector generate_magma_current_vector(std::vector<coordinate> *plate);
             void print_height_map();
     };
 }

@@ -184,7 +184,7 @@ namespace world_base {
         return value_map.get_coordinate_value(c);
     }
 
-
+    /*
     fvector Geology::generate_magma_current_vector(std::vector<coordinate> *plate) {
         fvector plate_vector = {0.0, 0.0};
         std::vector<coordinate> neighbors;
@@ -196,6 +196,7 @@ namespace world_base {
         }
         return value_map.standardize_vector(plate_vector);
     }
+    */
 
 
     void Geology::print_height_map() {
