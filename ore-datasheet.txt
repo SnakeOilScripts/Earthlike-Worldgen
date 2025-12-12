@@ -1,0 +1,97 @@
+# types of copper deposits:
+    #   - porphyry -> intrusive igneous rock + hot fluid (volcanism)
+    #   - VMS -> volcanism in the ocean (historically significant, associated with subduction zones)
+    #   . skarn -> intrusive igneous rock + carbonate sedimentary rock + volcanism (also contains all other base metals + precious metals, depending on host rock)
+    #   - hydrothermal -> volcanic activity + limestone/dolomite "and other rocks"
+    # malachite forms as oxidation of exposed copper from many of these different deposits, especially VMS since sulfides are likely to turn into malachite
+
+    # types of tin deposits:
+    #   - placer  -> adjacent to vein/lode deposit
+    #   - vein/lode  -> granitic rock + hydrothermal (volcanism)
+    #   - greisen -> granite intrusions + hydrothermal
+    #   - pegmatite -> igneos pegmatite rock (likely not relevant)
+    #   - skarn -> same as above
+
+    # types of lead deposits:
+    #   - skarn
+    #   - hydrothermal
+    #   - weathering/oxidation
+    #   - faults (tectonic) + hydrothermal / mineral rich fluids
+
+    # types of silver deposits:
+    #   - vein/lode -> calcite + hydrothermal
+    #   - hydrothermal
+    #   - porphyry -> intrusive igneous rock + volcanism, similar but not equal to skarn
+    #   - skarn
+    #   - placer / sedimentary -> adjacent to skarn
+
+    # types of gold deposits:
+    #   - vein/lode -> hydrothermal + quartz
+    #   - placer deposits (adjacent to hydrothermal quartz / skarn)
+    #   - skarn
+    #   NOTE: electrum is a naturally occurring alloy of silver and gold
+
+    # types of iron deposits:
+    #   - bog iron (irrelevant for geologly)
+    #   - BIF
+    #   - skarn
+
+    #   https://geologyscience.com/ore-genesis/hydrothermal-ore-minerals/
+    #   -> porphyry and skarn are both hydrothermal, and both different
+
+
+ore deposit by origin:
+
+1. magmatic (related to volcanism, depends on rock type in the magma produced)
+    1.1 magmatic sulfides and cumulates
+        - mafic/ultramafic magma
+        - contains sulfide minerals of platinum, palladium, chromium, MOSTLY irrelevant
+        - also contains iron ore (magnetite)
+    1.2 pegmatites
+        - felsic magmas
+        - rich in boron, cesium, lithium, molybdenum, niobium, tantalum, tin, tungsten
+        - rich in tourmalines (common gemstones), aquamarines, emeralds, garnet, zircon, topaz, irrelevant for now
+    1.3 kimberlites
+        - ultramafic magmas
+        - primary source of diamonds
+    
+2. hydrothermal (related to volcanism and subduction/divergent plates plus host rock already present)
+    2.1 porphyry
+        - form during volcanism (large-scale, possibly also as base event during subduction)
+        - copper gold (tin)
+        - host rock felsic/intermediate
+        - vein/lode structure forms
+        - oxidized zones produce malachite
+        - minor lead ore (galena)
+        -> volcanism && above sea_level -> % felsic + % intermediate * base_unit = porphyry
+    2.2 skarn
+        - carbonate rock (possibly metamorphic) + volcanism
+        - small scale (around the intrusion only)
+        - copper, tungsten, iron, tin, molybdenum, zinc, lead, and gold
+        - less commonly silver
+        -> volcanism (&& above sea_level - my assumption due to close connection to porphyry) -> % carbonate * base_unit = skarn 
+    2.3 VMS
+        - volcanism below sea level, or basic occurrence at mid ocean ridge (divergent plate interaction)
+        - high ore quality, host rock is generally more than 60% ore mineral
+        - copper, zinc, silver, gold, lead, (iron)
+        -> volcanism && below sea_level -> base_unit * (% igneous + % metamorphic) (* 0.6) = VMS (about 60% of host rock is replaced by ore)
+    2.3.2 SEDEX
+        - sedimentary host rock, otherwise same as VMS
+        - rare deposit type
+        - zinc, lead, silver
+        -> volcanism & below sea_level -> base_unit * % sedimentary (* 0.6) = SEDEX (just assuming the 0.6 number due to close comparison with VMS in sources)
+    2.4 (epigenetic) MVT
+        - runoff of distant hydrothermal activity
+        - lead (galena) and important silver source (galena is also a silver source)
+        -> dealt with when water table exists
+
+3. sedimentary
+    3.1 placer
+        - downstream of vein/lode deposits or other hydrothermal deposits
+        - curves in streams and areas of low water velocity
+    3.2 BIF
+        - seem to build over time, probably dependent on mafic host rock (pure guesswork on my part)
+        - associated with sedimentary rock
+    3.3 evaporites
+    3.4 laterite
+    3.5 phosphorite

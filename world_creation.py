@@ -10,17 +10,6 @@ from functools import reduce
 #random.seed()
 
 
-#TODO:  
-#       2) general erosion to get classic foothill shapes (abstract wind&water) -> make map more detailed
-#       3) add x units of water to every point, travel to lowest reachable point, simulate sea level and bodies of water with it
-#       4) water cycle and river/lake formation
-#       5) local climate, (ground type), humidity
-#       6) local flora/fauna
-
-# missing: mineral deposits?
-#           read up on this here: geologyin.com
-
-
 
 class ObjectMap:
 
@@ -279,7 +268,6 @@ class VectorMap(ObjectMap):
         self.coordinates[x,y] = value
 
 
-# TODO: move ends back to set instead of dict
 class Split:
     def __init__(self, shared_map:SetMap, value):
         self.shared_map = shared_map
@@ -546,7 +534,6 @@ class TectonicPlates:
     
 
 
-# TODO: double-check that this works with the new ObjectMap class
 class MagmaCurrentMap:
     # suction from subduction seems to be the strongest factor for plate movement, while magma currents explain the megacontinent-cycle
     def __init__(self, dimensions, base_surface):
@@ -595,7 +582,6 @@ class TectonicDomain:
         self.value_map.apply_changes()
 
 
-    # TODO: make this base class fitting for both Topography and Geology
     def point_interaction(self, x1, y1, x2, y2, mode, ratio):
         # point_interaction must check if the coordinate is within dimensions because of how the interaction calculation works
         # having the plate boundary occupying a coordinate breaks all systems I could come up with, here is the new plan:
@@ -666,10 +652,8 @@ class TectonicDomain:
 
 
 class Geology(TectonicDomain):
-    # TODO: rock cycle: igneous -> sedimentary -> polymorphic (time-based)
         # igneous rocks occur at volcanism and divergent boundaries
         # igneous rock turns into sedimentary rock based on time, sedimentary rock turns into polymorphic rock
-    # TODO: metal occurrences at the surface, possibly related to different types of rock
         # metals of interest: Fe, Cu, Pb, Sn, Ag, Au, Pt, Zn, Bi
         # weight determines where the metals are in the crust, overall abundance also plays a role
         # https://iperiodictable.com/wp-content/uploads/2020/06/Periodic-Table-of-Elements-with-Names.png
@@ -719,10 +703,7 @@ class Geology(TectonicDomain):
         self.base_unit["mafic"] = self.base_unit_size
         self.last_sea_level = 0
         self.value_map = UpdateDictMap(self.dimensions, self.base_unit)
-        # TODO: model mafic vs felsic rocks (100 element representations in list, calculate the silica content) with random.choices
-        # also model intrusive vs volcanic rock, point interactions could do this - erosion shifts a intrusive/extrusive ratio towards intrusive, newly formed formations shift it back
-        # the ratio models the surface accessible rock type
-
+        
     def determine_rock_type(self):
         magma_contents = {"O":0, "Si":0, "Al":0, "Fe":0, "Ca":0, "Na":0, "Mg":0, "K":0}
         element_units = random.choices(self.abundant_elements, weights=self.abundances, k=100)
@@ -774,9 +755,6 @@ class Geology(TectonicDomain):
         return unit
 
 
-    #def transform_interaction(self, x1, y1, x2, y2, transfer_unit, ratio):
-        # TODO: creates gorges where intrusive rock becomes visible - strong shift in the intrusive/extrusive ratio
-        #pass
     def get_transfer_unit(self, value, ratio):
         unit = copy.deepcopy(value)
         for key in unit:
@@ -909,7 +887,6 @@ class TectonicMovements:
             hotspot["lifespan"] -= 1
 
 
-    # TODO: adjust this so that the boundaries no longer occupy coordinate points
     # a boundary coordinate belongs to the plate of the lowest plate_id
     # this can be achieved without changing the tectonic plate implementation by disregarding some coordinates in this method
     # a bool is_adjacent_to_boundary must exist (basically does a coordinate neighbor another coordinate with two or more plate ids)
@@ -987,7 +964,6 @@ class TectonicMovements:
 
 
     def apply_volcanism(self, x, y):
-        #TODO: add hotspots as a means of encouragin inter-plate mountain ranges and peninsulae / island archipelagos
         if random.random() <= self.volcanism_chance:
             self.geology.apply_volcanism(x,y)
 

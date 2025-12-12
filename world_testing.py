@@ -2,7 +2,7 @@ from world_creation import *
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import pickle
-import sys, time
+import sys, time, argparse
 import numpy as np
 
 green_spectrum = colors.LinearSegmentedColormap.from_list("mycmap1", ["xkcd:light green", "xkcd:green"]).resampled(128)
@@ -64,23 +64,25 @@ def initialize_world(seed, dimensions, n_splits, split_distance):
     return tectonic_splits
 
 
-def generate(dimensions, tectonic_splits):
+def generate(dimensions, tectonic_splits, rounds, vis_interval):
     plates = TectonicPlates(dimensions)
     plates.generate_from_splits(tectonic_splits.split_map)
     geology = Geology(dimensions)
     magma_currents = MagmaCurrentMap(dimensions, geology)
     movements = TectonicMovements(magma_currents, plates, geology)
+    # to get plates moving, give one coordinate some extra rock units, which gets magma currents flowing
     geology.value_map.increment_coordinate_value(1,3,{"igneous":100.0})
     geology.value_map.apply_changes()
-    for i in range(1000):
-        figname = f"plots/fig{i}"
+    for i in range(rounds):
+        figname = f"fig{i}"
         start = time.time()
         movements.simulate_plate_movement()
         stop = time.time()
-        print(i, stop-start)
-        if i % 1000 == 0:
+        #print(i, stop-start)
+        if i % vis_interval == 0:
             visualize_geology_terrain(geology, figname)
-            print(figname, stop-start)
+            visualize_geology_rocks(geology, figname)
+            #print(figname, stop-start)
     return geology
 
 def avg_height(coordinates):
@@ -111,14 +113,24 @@ def visualize_geology_rocks(geology, figname):
     ax[6].imshow(geology.get_single_attribute_value_map("metamorphic"), cmap=metamorphic_map, interpolation='gaussian')
     plt.savefig(figname+"_rocktypes")
 
+parser = argparse.ArgumentParser()
 
-dimensions = ((0,50),(0,50))
-splits = initialize_world("ernalia", dimensions, 10, 15)
-geology = generate(dimensions, splits)
+parser.add_argument("--width", type=int, action="store", default=50)
+parser.add_argument("--height", type=int, action="store", default=50)
+parser.add_argument("--rounds", type=int, action="store", default=2000)
+parser.add_argument("--expansion_rounds", type=int, action="store", default=4)
+parser.add_argument("--visualization_interval", type=int, action="store", default=100)
+parser.add_argument("--seed", type=str, action="store", default="flowergarden")
 
+args = parser.parse_args()
+dimensions = ((0,args.width),(0,args.height))
+# create 10 splits with a minimum starting distance of 15, good values over all, adjust at your leasure
+splits = initialize_world(args.seed, dimensions, 10, 15)
+geology = generate(dimensions, splits, args.rounds, args.visualization_interval)
 
-for i in range(4):
-    geology.expand_dimensions_transitional_gaussian(2)
+for i in range(args.expansion_rounds):
+    # expand by factor 2 - this is enough to smooth the coordinates without exploding the dimensions
+    geology.rexpand_dimensions_transitional_gaussian(2)
     sea_level = float(geology.get_sea_level())
     plt.imshow(geology.generate_topography(), cmap=new_terrain, vmin=sea_level)
-    plt.savefig(f"plots/continents_gaussian{i}.png")
+    plt.savefig(f"finisged_continents_expanded{i}.png")
