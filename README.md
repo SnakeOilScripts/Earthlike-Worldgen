@@ -35,6 +35,11 @@ For this step, each coordinate contains a dictionary with numerical values for d
   Once the movement vector for a plate is calculated, each coordinate of the plate interacts with its neighbors based on that movement vector (this simulates land mass stored in one coordinate moving towards another). Special interactions occur at coordinates that are considered plate boundaries, such as subduction, or convergence/divergence, which result in special behavior (volcanism, ore formation, newly created land mass as magma between plates hits ocean water, etc.)
   After a set number of plate movements, the world is considered finished and a topography, and comparative mineralogy map can be created.
 
+- Dimension expansion and blur
+
+  The resulting maps still lack at lot of detail, and have very strong differences in heights between neighboring coordinates. To address this, I implemented my own basic gaussian blur, which also increases the dimensions for a map, to give it more detail while smoothing out the differences.
+
+
 #### Test this Yourself
 
 ### Future Plans
