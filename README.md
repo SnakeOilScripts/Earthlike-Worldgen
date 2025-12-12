@@ -41,7 +41,10 @@ For this step, each coordinate contains a dictionary with numerical values for d
 
 
 #### Test this Yourself
+```world_testing.py``` will create and visualize a world for you. All arguments have adequate defaults, feel free to increase the number of rounds, to make the world bigger and more detailed, as the first x * 100 rounds typically don't result in a land mass large enough to go above sea level. Within a certain round interval, intermediate visualizations are created, both topography and mineralogy. You can adjust this also.
 
 ### Future Plans
+The future of this project definitely lies on the performance branch, as C++ just performs much better overall, and allows for multithreading, which I need for very detailed maps.
+
 The created worlds look a little too flat and round (mountain ranges look uniform, coastlines are not jagged enough), and I suspect that is both due to the relatively small scale of the coordinate systems being created, and to the fact that much of our natural topography is shaped by rivers and glaciers, which are currently not modeled.
 Glaciers, rivers, the resulting climate zones, and vegetation are in planning.
